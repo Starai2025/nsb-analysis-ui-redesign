@@ -2,8 +2,11 @@ import React, { useState, useRef } from 'react';
 import { FileUp, Mail, ArrowRight, CheckCircle2, Info, Loader2, AlertCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 import { DocumentType } from '../types';
+import { GoogleGenAI, Type } from "@google/genai";
+import * as mammoth from "mammoth/mammoth.browser";
 
 export default function IntakePage() {
+  console.log("IntakePage rendering...");
   const [contractFile, setContractFile] = useState<File | null>(null);
   const [correspondenceFile, setCorrespondenceFile] = useState<File | null>(null);
   const [uploaded, setUploaded] = useState<Record<string, boolean>>({});
@@ -30,6 +33,18 @@ export default function IntakePage() {
     }
   };
 
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        const base64String = (reader.result as string).split(',')[1];
+        resolve(base64String);
+      };
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, type: DocumentType) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -49,39 +64,171 @@ export default function IntakePage() {
   };
 
   const handleAnalyze = async () => {
-    console.log("Analyze button clicked (Backend File API Pattern)");
+    console.log("Analyze button clicked (Frontend @google/genai Pattern)");
     if (!contractFile || !correspondenceFile) {
       setError("Please upload both the contract and the correspondence.");
       return;
     }
     
     setAnalyzing(true);
-    setAnalysisStatus('Uploading documents to secure server...');
+    setAnalysisStatus('Preparing documents for analysis...');
     setError(null);
     startTimer();
 
     try {
-      // 1. Prepare FormData
-      const formData = new FormData();
-      formData.append('contract', contractFile);
-      formData.append('correspondence', correspondenceFile);
-
-      // 2. Call Backend Analysis (which uses File API)
-      const response = await fetch('/api/analyze', {
-        method: 'POST',
-        body: formData
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Analysis failed on server");
+      // 1. Initialize Gemini
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        throw new Error("Gemini API Key is missing. Please ensure it is set in your environment.");
       }
 
-      const { analysis } = await response.json();
+      const ai = new GoogleGenAI({ apiKey });
+
+      // 2. Process Files
+      const processFile = async (file: File) => {
+        console.log(`Processing file: ${file.name} (${file.type})`);
+        if (file.type === 'application/pdf') {
+          const base64 = await fileToBase64(file);
+          return { inlineData: { data: base64, mimeType: 'application/pdf' } };
+        } else if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+          const arrayBuffer = await file.arrayBuffer();
+          const result = await mammoth.extractRawText({ arrayBuffer });
+          return { text: `Document Name: ${file.name}\nContent:\n${result.value}` };
+        }
+        throw new Error(`Unsupported file type: ${file.type}`);
+      };
+
+      const [contractPart, correspondencePart] = await Promise.all([
+        processFile(contractFile),
+        processFile(correspondenceFile)
+      ]);
+
+      setAnalysisStatus('Consulting Gemini AI (this may take a minute)...');
+
+      const systemInstruction = `
+        You are a senior construction contract manager. Your task is to analyze a contract and correspondence to determine the impact of a proposed change.
+        
+        CRITICAL: 
+        1. Be concise. 
+        2. Do NOT repeat yourself. 
+        3. Do NOT generate long strings of numbers or IDs. 
+        4. Focus on the legal and financial implications.
+        
+        You MUST return a valid JSON object following this schema:
+        {
+          "executiveConclusion": "string (max 300 chars)",
+          "scopeStatus": "In Scope" | "Out of Scope",
+          "primaryResponsibility": "string (max 100 chars)",
+          "secondaryResponsibility": "string (max 100 chars)",
+          "extraMoneyLikely": boolean,
+          "extraTimeLikely": boolean,
+          "claimableAmount": "string (e.g. $50,000)",
+          "extraDays": "string (e.g. 14 days)",
+          "noticeDeadline": "ISO date string",
+          "strategicRecommendation": "string (max 500 chars)",
+          "keyRisks": [
+            { "title": "string (max 50 chars)", "description": "string (max 200 chars)" }
+          ]
+        }
+        
+        Return ONLY the JSON. No markdown, no preamble, no explanation.
+      `;
+
+      const prompt = "Analyze the attached contract and correspondence and provide the decision summary JSON.";
+
+      const responseSchema = {
+        type: Type.OBJECT,
+        properties: {
+          executiveConclusion: { type: Type.STRING },
+          scopeStatus: { type: Type.STRING },
+          primaryResponsibility: { type: Type.STRING },
+          secondaryResponsibility: { type: Type.STRING },
+          extraMoneyLikely: { type: Type.BOOLEAN },
+          extraTimeLikely: { type: Type.BOOLEAN },
+          claimableAmount: { type: Type.STRING },
+          extraDays: { type: Type.STRING },
+          noticeDeadline: { type: Type.STRING },
+          strategicRecommendation: { type: Type.STRING },
+          keyRisks: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                title: { type: Type.STRING },
+                description: { type: Type.STRING }
+              },
+              required: ["title", "description"]
+            }
+          }
+        },
+        required: [
+          "executiveConclusion", "scopeStatus", "primaryResponsibility", 
+          "secondaryResponsibility", "extraMoneyLikely", "extraTimeLikely", 
+          "claimableAmount", "extraDays", "noticeDeadline", 
+          "strategicRecommendation", "keyRisks"
+        ]
+      };
+
+      // 3. Call Gemini
+      let response;
+      try {
+        console.log("Attempting with gemini-3-flash-preview...");
+        response = await ai.models.generateContent({
+          model: 'gemini-3-flash-preview',
+          contents: {
+            parts: [
+              contractPart,
+              correspondencePart,
+              { text: prompt }
+            ]
+          },
+          config: {
+            systemInstruction,
+            responseMimeType: 'application/json',
+            responseSchema,
+            temperature: 0.1
+          }
+        });
+      } catch (err) {
+        console.warn("Flash model failed, falling back to Pro model...", err);
+        setAnalysisStatus('Retrying with Pro model (handling complex document)...');
+        response = await ai.models.generateContent({
+          model: 'gemini-3.1-pro-preview',
+          contents: {
+            parts: [
+              contractPart,
+              correspondencePart,
+              { text: prompt }
+            ]
+          },
+          config: {
+            systemInstruction,
+            responseMimeType: 'application/json',
+            responseSchema,
+            temperature: 0.1
+          }
+        });
+      }
+
+      console.log("Gemini analysis completed");
+      const resultText = response.text;
+      if (!resultText) throw new Error("Empty response from Gemini");
+
+      let analysis;
+      try {
+        const text = resultText.trim();
+        const firstBrace = text.indexOf('{');
+        const lastBrace = text.lastIndexOf('}');
+        const jsonString = text.substring(firstBrace, lastBrace + 1);
+        analysis = JSON.parse(jsonString);
+      } catch (parseError) {
+        console.error("JSON Parse Error. Raw text:", resultText);
+        throw new Error("The AI returned a malformed response. This can happen with extremely long documents. Please try again with a more specific correspondence file.");
+      }
+
+      setAnalysisStatus('Finalizing and saving results...');
       
-      setAnalysisStatus('Saving analysis to project store...');
-      
-      // 3. Save to Backend Store
+      // 4. Save to Backend Store
       const saveResponse = await fetch('/api/save-analysis', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
