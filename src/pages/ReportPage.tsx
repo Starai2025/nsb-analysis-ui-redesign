@@ -22,10 +22,15 @@ type ReportStatus = 'idle' | 'generating' | 'ready' | 'failed';
 export default function ReportPage() {
   const [status, setStatus] = useState<ReportStatus>('idle');
   const [statusLine, setStatusLine] = useState('');
+  const [showSlowLoading, setShowSlowLoading] = useState(false);
   const [analysis, setAnalysis] = useState<any>(null);
   const reportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const slowTimer = setTimeout(() => {
+      setShowSlowLoading(true);
+    }, 5000);
+
     const fetchAnalysis = async () => {
       try {
         const response = await fetch('/api/store');
@@ -36,9 +41,12 @@ export default function ReportPage() {
         }
       } catch (error) {
         console.error('Failed to fetch analysis:', error);
+      } finally {
+        clearTimeout(slowTimer);
       }
     };
     fetchAnalysis();
+    return () => clearTimeout(slowTimer);
   }, []);
 
   const generateReport = async () => {
@@ -140,8 +148,14 @@ export default function ReportPage() {
 
       <div ref={reportRef} className="space-y-20 bg-white p-12 rounded-3xl shadow-2xl border border-slate-100 relative overflow-hidden">
         {!analysis ? (
-          <div className="text-center py-20">
-            <p className="text-on-surface-variant font-bold">No analysis data available. Please run an analysis first.</p>
+          <div className="text-center py-20 flex flex-col items-center gap-4">
+            <Loader2 size={48} className="animate-spin text-primary" />
+            <p className="text-on-surface-variant font-bold animate-pulse">Loading Report Data...</p>
+            {showSlowLoading && (
+              <p className="text-xs text-slate-500 animate-bounce">
+                Preparing your detailed report... this usually takes a few seconds.
+              </p>
+            )}
           </div>
         ) : (
           <>

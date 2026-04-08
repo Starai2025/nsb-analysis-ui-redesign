@@ -15,6 +15,7 @@ import {
 
 export default function DecisionSummaryPage() {
   const [loading, setLoading] = useState(true);
+  const [showSlowLoading, setShowSlowLoading] = useState(false);
   const [analysis, setAnalysis] = useState<any>(null);
   const [claimableAmount, setClaimableAmount] = useState('');
   const [extraDays, setExtraDays] = useState('');
@@ -22,6 +23,10 @@ export default function DecisionSummaryPage() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    const slowTimer = setTimeout(() => {
+      setShowSlowLoading(true);
+    }, 5000);
+
     const fetchAnalysis = async () => {
       try {
         const response = await fetch('/api/store');
@@ -36,9 +41,11 @@ export default function DecisionSummaryPage() {
         console.error('Failed to fetch analysis:', error);
       } finally {
         setLoading(false);
+        clearTimeout(slowTimer);
       }
     };
     fetchAnalysis();
+    return () => clearTimeout(slowTimer);
   }, []);
 
   const handleSaveAndGenerate = async () => {
@@ -72,7 +79,14 @@ export default function DecisionSummaryPage() {
     return (
       <div className="flex flex-col items-center justify-center h-[calc(100vh-4rem)] gap-4">
         <Loader2 size={48} className="animate-spin text-primary" />
-        <p className="text-on-surface-variant font-bold animate-pulse">Loading Analysis Results...</p>
+        <div className="text-center">
+          <p className="text-on-surface-variant font-bold animate-pulse">Loading Analysis Results...</p>
+          {showSlowLoading && (
+            <p className="text-xs text-slate-500 mt-2 animate-bounce">
+              Still working... complex documents can take up to a minute.
+            </p>
+          )}
+        </div>
       </div>
     );
   }
@@ -81,13 +95,21 @@ export default function DecisionSummaryPage() {
     return (
       <div className="flex flex-col items-center justify-center h-[calc(100vh-4rem)] gap-4">
         <AlertTriangle size={48} className="text-amber-500" />
-        <p className="text-on-surface-variant font-bold">No analysis found. Please upload documents first.</p>
-        <button 
-          onClick={() => window.location.href = '/intake'}
-          className="bg-primary text-white px-6 py-2 rounded-lg font-bold"
-        >
-          Go to Intake
-        </button>
+        <p className="text-on-surface-variant font-bold">No analysis found. It might still be processing or failed to save.</p>
+        <div className="flex gap-4">
+          <button 
+            onClick={() => window.location.reload()}
+            className="bg-slate-100 text-on-surface px-6 py-2 rounded-lg font-bold hover:bg-slate-200 transition-all"
+          >
+            Refresh Page
+          </button>
+          <button 
+            onClick={() => window.location.href = '/intake'}
+            className="bg-primary text-white px-6 py-2 rounded-lg font-bold hover:bg-primary-dim transition-all"
+          >
+            Go to Intake
+          </button>
+        </div>
       </div>
     );
   }

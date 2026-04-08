@@ -2,37 +2,42 @@ import React, { useState, useRef } from 'react';
 import { FileUp, Mail, ArrowRight, CheckCircle2, Info, Loader2, AlertCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 import { DocumentType } from '../types';
-import { GoogleGenAI, Type } from "@google/genai";
 
 export default function IntakePage() {
   const [contractFile, setContractFile] = useState<File | null>(null);
   const [correspondenceFile, setCorrespondenceFile] = useState<File | null>(null);
   const [uploaded, setUploaded] = useState<Record<string, boolean>>({});
   const [analyzing, setAnalyzing] = useState(false);
+  const [analysisStatus, setAnalysisStatus] = useState<string>('');
+  const [analysisTimer, setAnalysisTimer] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   const contractInputRef = useRef<HTMLInputElement>(null);
   const correspondenceInputRef = useRef<HTMLInputElement>(null);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const fileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => {
-        const base64String = (reader.result as string).split(',')[1];
-        resolve(base64String);
-      };
-      reader.onerror = (error) => reject(error);
-    });
+  const startTimer = () => {
+    setAnalysisTimer(0);
+    timerRef.current = setInterval(() => {
+      setAnalysisTimer(prev => prev + 1);
+    }, 1000);
+  };
+
+  const stopTimer = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, type: DocumentType) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Gemini inlineData only supports PDF for documents
-    if (file.type !== 'application/pdf') {
-      setError("Only PDF files are supported for automated analysis. Please convert your document to PDF and try again.");
+    // Supported types: PDF and DOCX
+    const supportedTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    if (!supportedTypes.includes(file.type)) {
+      setError("Only PDF and DOCX files are supported for automated analysis.");
       return;
     }
 
@@ -44,138 +49,39 @@ export default function IntakePage() {
   };
 
   const handleAnalyze = async () => {
-    console.log("Analyze button clicked (Frontend Refined)");
+    console.log("Analyze button clicked (Backend File API Pattern)");
     if (!contractFile || !correspondenceFile) {
       setError("Please upload both the contract and the correspondence.");
       return;
     }
     
     setAnalyzing(true);
+    setAnalysisStatus('Uploading documents to secure server...');
     setError(null);
+    startTimer();
 
     try {
-      // 1. Check API Key
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey) {
-        throw new Error("Gemini API Key is missing. Please add it in the application settings (Settings -> API Keys).");
-      }
-      if (apiKey.length < 20) {
-        throw new Error("The Gemini API Key seems too short. Please ensure you have copied the full key from Google AI Studio.");
-      }
+      // 1. Prepare FormData
+      const formData = new FormData();
+      formData.append('contract', contractFile);
+      formData.append('correspondence', correspondenceFile);
 
-      // 2. Check File Sizes (inlineData limit is ~20MB)
-      const MAX_INLINE_SIZE = 15 * 1024 * 1024; // 15MB
-      if (contractFile.size > MAX_INLINE_SIZE || correspondenceFile.size > MAX_INLINE_SIZE) {
-        throw new Error("One of the files is too large for instant analysis (max 15MB). Please try a smaller or compressed PDF.");
-      }
+      // 2. Call Backend Analysis (which uses File API)
+      const response = await fetch('/api/analyze', {
+        method: 'POST',
+        body: formData
+      });
 
-      const ai = new GoogleGenAI({ apiKey });
-
-      // 3. Prepare Files
-      console.log("Converting files to base64...");
-      const [contractBase64, correspondenceBase64] = await Promise.all([
-        fileToBase64(contractFile),
-        fileToBase64(correspondenceFile)
-      ]);
-
-      console.log("Starting Gemini analysis...");
-      const prompt = `
-        You are a senior construction contract manager. Analyze the following contract and correspondence.
-        
-        Provide a decision summary in JSON format with the following fields:
-        - executiveConclusion (string, max 3 sentences)
-        - scopeStatus (string, e.g., "In Scope", "Out of Scope")
-        - primaryResponsibility (string)
-        - secondaryResponsibility (string)
-        - extraMoneyLikely (boolean)
-        - extraTimeLikely (boolean)
-        - claimableAmount (string)
-        - extraDays (string)
-        - noticeDeadline (string, ISO date)
-        - strategicRecommendation (string)
-        - keyRisks (array of { title: string, description: string })
-        
-        IMPORTANT: Return ONLY the raw JSON object. Do not include markdown formatting.
-      `;
-
-      // 4. Call Gemini with fallback
-      let result;
-      try {
-        console.log("Attempting with gemini-3-flash-preview...");
-        result = await ai.models.generateContent({
-          model: 'gemini-3-flash-preview',
-          contents: {
-            parts: [
-              { inlineData: { data: contractBase64, mimeType: contractFile.type || 'application/pdf' } },
-              { inlineData: { data: correspondenceBase64, mimeType: correspondenceFile.type || 'application/pdf' } },
-              { text: prompt }
-            ]
-          },
-          config: {
-            responseMimeType: 'application/json',
-            responseSchema: {
-              type: Type.OBJECT,
-              properties: {
-                executiveConclusion: { type: Type.STRING },
-                scopeStatus: { type: Type.STRING },
-                primaryResponsibility: { type: Type.STRING },
-                secondaryResponsibility: { type: Type.STRING },
-                extraMoneyLikely: { type: Type.BOOLEAN },
-                extraTimeLikely: { type: Type.BOOLEAN },
-                claimableAmount: { type: Type.STRING },
-                extraDays: { type: Type.STRING },
-                noticeDeadline: { type: Type.STRING },
-                strategicRecommendation: { type: Type.STRING },
-                keyRisks: {
-                  type: Type.ARRAY,
-                  items: {
-                    type: Type.OBJECT,
-                    properties: {
-                      title: { type: Type.STRING },
-                      description: { type: Type.STRING }
-                    }
-                  }
-                }
-              },
-              required: [
-                "executiveConclusion", "scopeStatus", "primaryResponsibility", 
-                "secondaryResponsibility", "extraMoneyLikely", "extraTimeLikely", 
-                "claimableAmount", "extraDays", "noticeDeadline", 
-                "strategicRecommendation", "keyRisks"
-              ]
-            }
-          }
-        });
-      } catch (firstTryError) {
-        console.warn("gemini-3-flash-preview failed, falling back to gemini-flash-latest:", firstTryError);
-        try {
-          result = await ai.models.generateContent({
-            model: 'gemini-flash-latest',
-            contents: {
-              parts: [
-                { inlineData: { data: contractBase64, mimeType: contractFile.type || 'application/pdf' } },
-                { inlineData: { data: correspondenceBase64, mimeType: correspondenceFile.type || 'application/pdf' } },
-                { text: prompt }
-              ]
-            },
-            config: {
-              responseMimeType: 'application/json'
-            }
-          });
-        } catch (secondTryError) {
-          console.error("All Gemini models failed:", secondTryError);
-          throw new Error(`Gemini API call failed: ${secondTryError instanceof Error ? secondTryError.message : 'Unknown error'}. Please check your internet connection and API key.`);
-        }
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Analysis failed on server");
       }
 
-      console.log("Gemini analysis completed");
-      if (!result.text) throw new Error("Empty response from Gemini");
-
-      const cleanJson = result.text.replace(/```json|```/g, "").trim();
-      const analysis = JSON.parse(cleanJson);
-
-      // 4. Save to Backend
-      console.log("Saving analysis to backend...");
+      const { analysis } = await response.json();
+      
+      setAnalysisStatus('Saving analysis to project store...');
+      
+      // 3. Save to Backend Store
       const saveResponse = await fetch('/api/save-analysis', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -198,8 +104,10 @@ export default function IntakePage() {
 
       if (!saveResponse.ok) throw new Error("Failed to save analysis to server");
 
+      stopTimer();
       window.location.href = '/summary';
     } catch (err) {
+      stopTimer();
       console.error('Analysis failed:', err);
       const message = err instanceof Error ? err.message : 'An unexpected error occurred during analysis.';
       setError(message);
@@ -215,14 +123,14 @@ export default function IntakePage() {
         ref={contractInputRef} 
         className="hidden" 
         onChange={(e) => handleFileChange(e, 'contract')}
-        accept=".pdf"
+        accept=".pdf,.docx"
       />
       <input 
         type="file" 
         ref={correspondenceInputRef} 
         className="hidden" 
         onChange={(e) => handleFileChange(e, 'correspondence')}
-        accept=".pdf"
+        accept=".pdf,.docx"
       />
 
       <div className="mb-8 flex justify-between items-start">
@@ -241,29 +149,6 @@ export default function IntakePage() {
             <div className={`w-2 h-2 rounded-full ${process.env.GEMINI_API_KEY ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
             {process.env.GEMINI_API_KEY ? 'Gemini API: Connected' : 'Gemini API: Key Missing'}
           </div>
-          {process.env.GEMINI_API_KEY && (
-            <button 
-              onClick={async () => {
-                try {
-                  const key = process.env.GEMINI_API_KEY || "";
-                  if (key.length < 20) throw new Error("Key is too short");
-                  const ai = new GoogleGenAI({ apiKey: key });
-                  const res = await ai.models.generateContent({
-                    model: 'gemini-flash-latest',
-                    contents: "Say 'Connection Successful'"
-                  });
-                  alert(`Success: ${res.text || "Empty response"}`);
-                } catch (e) {
-                  const msg = e instanceof Error ? e.message : String(e);
-                  console.error("Connection test failed:", e);
-                  alert(`Connection failed: ${msg}\n\nCheck if your API key is correct in Settings.`);
-                }
-              }}
-              className="text-[10px] font-bold text-primary hover:underline"
-            >
-              Test Connection
-            </button>
-          )}
         </div>
       </div>
 
@@ -343,7 +228,7 @@ export default function IntakePage() {
                     </div>
                     <div className="text-center">
                       <p className="text-sm font-bold text-on-surface">Upload Contract</p>
-                      <p className="text-[11px] text-slate-500 mt-1">PDF up to 50MB</p>
+                      <p className="text-[11px] text-slate-500 mt-1">PDF or DOCX up to 50MB</p>
                     </div>
                   </button>
                 )}
@@ -372,7 +257,7 @@ export default function IntakePage() {
                         : 'Upload Correspondence'}
                     </p>
                     <p className="text-[11px] text-slate-500 mt-1">
-                      {uploaded.correspondence ? 'Successfully Ingested' : 'PDF only (Emails, RFIs, or minutes)'}
+                      {uploaded.correspondence ? 'Successfully Ingested' : 'PDF or DOCX (Emails, RFIs, or minutes)'}
                     </p>
                   </div>
                 </button>
@@ -390,10 +275,20 @@ export default function IntakePage() {
                   }`}
                 >
                   {analyzing ? (
-                    <>
-                      <Loader2 size={18} className="animate-spin" />
-                      Analyzing...
-                    </>
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="flex items-center gap-2">
+                        <Loader2 size={18} className="animate-spin" />
+                        <span>Analyzing...</span>
+                      </div>
+                      <span className="text-[10px] font-medium text-white/70 animate-pulse">
+                        {analysisStatus} ({analysisTimer}s)
+                      </span>
+                      {analysisTimer > 60 && (
+                        <span className="text-[10px] text-amber-300 font-bold mt-1 animate-bounce">
+                          {analysisTimer > 90 ? 'Complex analysis in progress. Almost there...' : 'Large document detected. Still processing...'}
+                        </span>
+                      )}
+                    </div>
                   ) : (
                     <>
                       Analyze Change
