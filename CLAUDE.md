@@ -1,81 +1,138 @@
-# Never Sign Blind — Claude Working Instructions
+# Never Sign Blind — Rebuild Rules
 
-## What This App Does
-Never Sign Blind (NSB) is an AI-powered construction contract analysis tool. Users upload a contract (PDF/DOCX) and correspondence (PDF/DOCX), and the app uses Gemini AI to produce a structured risk and financial analysis — including scope status, claimable amounts, notice deadlines, key risks, and a strategic recommendation. The output flows through: Intake → Decision Summary → Report → Sources → Draft Response.
+## Product Goal
+This app must become a fully live, local-first contract change-management tool.
 
-## Stack
-- **Frontend**: React 19 + TypeScript + Vite + Tailwind CSS v4
-- **AI**: Google Gemini via `@google/genai` (client-side)
-- **Routing**: React Router v7
-- **Document parsing**: pdfjs-dist (PDF), mammoth (DOCX)
-- **PDF export**: jsPDF + html2canvas
-- **Server**: Express (minimal — static host + in-memory store only)
-- **Animation**: motion (Framer Motion v12)
+- No fake report generation
+- No fake chat
+- No fake source review
+- No client-side LLM calls
 
-## Project Structure
-```
-src/
-  pages/          ← One file per route (IntakePage, DecisionSummaryPage, etc.)
-  components/     ← Shared UI (Sidebar, TopBar, AskTheContract)
-  lib/            ← Utilities (utils.ts with cn())
-  types.ts        ← All shared TypeScript interfaces
-server.ts         ← Express server (dev only)
-vite.config.ts    ← Vite config with proxy to Express
-```
+## Current Stack
+- Vite + React frontend
+- Express backend
 
-## Critical Rules for Claude
+## Architecture Direction
 
-### 1. Never Break the Analysis Flow
-The core loop is: `IntakePage → /api/save-analysis → DecisionSummaryPage → /api/store → ReportPage`. Do not refactor the API surface of these endpoints without updating all consumers simultaneously.
+**Keep the current stack.**
 
-### 2. API Key Safety
-The Gemini API key MUST stay server-side or be properly injected via Vite env (`VITE_` prefix). Never hardcode it. Never log it. The correct env var is `VITE_GEMINI_API_KEY` in `.env.local`.
-
-### 3. Correct Gemini Model Names
-Use only these model names:
-- Flash: `gemini-2.0-flash`
-- Pro fallback: `gemini-1.5-pro`
-Do NOT invent model names. Verify against `@google/genai` docs before using any new model string.
-
-### 4. Type Safety
-All AI response shapes must match the `AnalysisResult` interface in `src/types.ts`. Do not use `any` for analysis data in new code.
-
-### 5. Navigation
-Use `useNavigate()` from `react-router-dom` for all programmatic navigation. Never use `window.location.href`.
-
-### 6. State Persistence
-Analysis state currently lives in the Express in-memory store. Phase 2 will migrate this to `localStorage`. Until then, do not rely on state surviving a server restart.
-
-### 7. Phase Discipline
-All work is organized into phases (see `docs/rebuild/roadmap.md`). Before starting work on any phase:
-1. Run `/repo-audit` to verify current state
-2. Check the phase doc in `docs/rebuild/`
-3. Complete all checklist items in `.claude/skills/phase-gate/checklist.md`
-4. Run `/smoke-check` before marking a phase complete
-
-### 8. Formatting
-- Tailwind only — no inline styles, no CSS modules
-- Use the existing design tokens (`bg-surface`, `text-on-surface`, `text-primary`, etc.)
-- All new pages follow the `max-w-[1400px] mx-auto p-8` container pattern
-
-## Custom Commands (Claude Code)
-| Command | Purpose |
+| Layer | Responsibility |
 |---|---|
-| `/repo-audit` | Full audit of current repo state vs. roadmap |
-| `/phase-plan` | Plan work items for a specific phase |
-| `/phase-gate` | Run gate checks before closing a phase |
-| `/smoke-check` | Quick functional smoke test |
-| `/regression-check` | Full regression test suite |
-| `/ship-check` | Pre-deployment checklist |
+| IndexedDB | Primary local persistence — all analysis data, documents, threads |
+| localStorage | Tiny UI/session preferences only (e.g., sidebar collapsed state) |
+| Express backend | All model calls, orchestration, file processing |
+| React frontend | UI state only — never calls AI APIs directly |
 
-## Known Issues (as of last audit)
-- Gemini model names are wrong in IntakePage — use `gemini-2.0-flash` / `gemini-1.5-pro`
-- SourcesPage citations are hardcoded demo data, not wired to analysis
-- DraftResponsePage is static placeholder content
-- Project detail fields (name, contract #, CR #) are uncontrolled inputs — not saved
-- `window.location.href` used in IntakePage instead of `useNavigate()`
-- In-memory server store will be replaced in Phase 2
+### Non-Negotiables
+- Never expose API keys to the browser
+- Never store only one global analysis — every analysis is a named thread
+- No mocked content on any production-facing page
+- No phase is complete until lint + build + smoke checks pass
+- Do not redesign the UI unless a change is required for correctness
 
-## Contacts
-- Repo owner: Starai2025
-- App branding: Never Sign Blind
+## Build Order
+
+```
+1. Audit & stabilization
+2. Persistence layer (IndexedDB)
+3. Real document ingestion
+4. Real analysis (server-side)
+5. Real report
+6. Real sources
+7. Real Ask the Contract
+8. Real draft response
+9. Claim threading / position comparison
+```
+
+## Validation Rule
+
+Before moving to the next phase, all of the following must pass:
+
+```bash
+npm run lint       # maps to: tsc --noEmit
+npm run build      # must complete with no errors
+```
+
+Then run the manual smoke checklist in `.claude/skills/phase-gate/smoke-tests.md`.
+
+Then run `/review` focused on regressions.
+
+Then summarize:
+- Changed files
+- What was removed or made no longer necessary
+- Remaining known risks entering the next phase
+
+## Current Known Repo Truths
+
+- Stack: Vite + Express
+- Scripts: `dev`, `build`, `preview`, `clean`, `lint`
+- `lint` maps to `tsc --noEmit`
+- AI analysis currently runs **client-side via Gemini** — this must move to the Express server
+- `server.ts` currently holds an in-memory analysis store and minimal endpoints
+- Downstream features — report, sources, chat, draft — are partially or fully mocked
+- The correct AI SDK for server-side use is `@google/genai` (already in `package.json`)
+- API key must be read from `process.env.GEMINI_API_KEY` on the server, never sent to the browser
+
+## File Responsibilities
+
+```
+server.ts             ← All AI calls, document processing, persistence coordination
+src/pages/            ← UI only — fetches from Express, renders results
+src/lib/              ← Shared frontend utilities (no AI, no direct IndexedDB in pages)
+src/types.ts          ← Shared type contracts between frontend and backend
+```
+
+## API Contract (Server ↔ Frontend)
+
+All endpoints are under `/api/`. The frontend never calls Gemini directly.
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| POST | `/api/analyze` | Upload files + run Gemini analysis, return result |
+| GET | `/api/threads` | List all analysis threads |
+| GET | `/api/threads/:id` | Get a specific thread |
+| POST | `/api/threads/:id/draft` | Generate draft response for a thread |
+| POST | `/api/threads/:id/chat` | Ask a question about a thread's documents |
+
+## IndexedDB Schema (Frontend Persistence)
+
+```
+Store: threads
+  Key: thread.id (uuid)
+  Value: AnalysisThread {
+    id, createdAt, updatedAt,
+    projectData,
+    analysis,
+    contract (ExtractedDocument),
+    correspondence (ExtractedDocument),
+    citations,
+    draft?,
+    chatHistory?
+  }
+
+Store: preferences
+  Key: string
+  Value: any (ui state only)
+```
+
+## Phase Gate Commands
+
+| Command | When to Use |
+|---|---|
+| `/repo-audit` | Before starting any phase — verify current state |
+| `/phase-plan N` | Plan all work items for phase N |
+| `/phase-gate N` | Gate check before closing phase N |
+| `/smoke-check` | After any meaningful change |
+| `/regression-check` | Before merging or closing a phase |
+| `/ship-check` | Before any production deploy |
+
+## Known Issues Entering Phase 1
+
+- AI analysis runs client-side — must move to Express
+- Gemini model names in `IntakePage.tsx` are incorrect
+- `process.env.GEMINI_API_KEY` used in browser context — must be removed
+- `window.location.href` used for navigation instead of `useNavigate()`
+- Project detail fields (name, contract #, CR #) are uncontrolled — never saved
+- `server.ts` in-memory store will be replaced by IndexedDB in Phase 2
+- Sources, Draft, and Chat pages contain hardcoded placeholder content
+- No error boundary exists — unhandled errors produce a white screen
