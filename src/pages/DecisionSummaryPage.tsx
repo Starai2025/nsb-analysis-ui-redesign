@@ -19,6 +19,7 @@ export default function DecisionSummaryPage() {
   const [claimableAmount, setClaimableAmount] = useState('');
   const [extraDays, setExtraDays] = useState('');
   const [secondaryResponsibility, setSecondaryResponsibility] = useState('');
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const fetchAnalysis = async () => {
@@ -39,6 +40,33 @@ export default function DecisionSummaryPage() {
     };
     fetchAnalysis();
   }, []);
+
+  const handleSaveAndGenerate = async () => {
+    setSaving(true);
+    try {
+      const updatedAnalysis = {
+        ...analysis,
+        claimableAmount,
+        extraDays,
+        secondaryResponsibility
+      };
+
+      const response = await fetch('/api/save-analysis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ analysis: updatedAnalysis })
+      });
+
+      if (!response.ok) throw new Error('Failed to save changes');
+
+      window.location.href = '/report';
+    } catch (error) {
+      console.error('Save failed:', error);
+      alert('Failed to save changes. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -222,6 +250,17 @@ export default function DecisionSummaryPage() {
           </div>
         </div>
       </section>
+
+      <div className="flex justify-center gap-6">
+        <button 
+          onClick={handleSaveAndGenerate}
+          disabled={saving}
+          className="bg-primary text-white px-10 py-4 rounded-xl font-bold shadow-xl hover:bg-primary-dim transition-all active:scale-95 flex items-center gap-2"
+        >
+          {saving ? <Loader2 className="animate-spin" size={20} /> : <CheckCircle2 size={20} />}
+          Save & Generate Full Report
+        </button>
+      </div>
 
       <div className="flex justify-center gap-6">
         <button className="text-[10px] uppercase tracking-widest font-bold text-on-surface-variant hover:text-primary transition-colors">Compare with AIA A201</button>

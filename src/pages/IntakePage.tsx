@@ -1,49 +1,208 @@
 import React, { useState, useRef } from 'react';
-import { FileUp, Mail, ArrowRight, CheckCircle2, Info, Loader2 } from 'lucide-react';
+import { FileUp, Mail, ArrowRight, CheckCircle2, Info, Loader2, AlertCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 import { DocumentType } from '../types';
+import { GoogleGenAI, Type } from "@google/genai";
 
 export default function IntakePage() {
   const [contractFile, setContractFile] = useState<File | null>(null);
   const [correspondenceFile, setCorrespondenceFile] = useState<File | null>(null);
   const [uploaded, setUploaded] = useState<Record<string, boolean>>({});
   const [analyzing, setAnalyzing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const contractInputRef = useRef<HTMLInputElement>(null);
   const correspondenceInputRef = useRef<HTMLInputElement>(null);
+
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        const base64String = (reader.result as string).split(',')[1];
+        resolve(base64String);
+      };
+      reader.onerror = (error) => reject(error);
+    });
+  };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, type: DocumentType) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Gemini inlineData only supports PDF for documents
+    if (file.type !== 'application/pdf') {
+      setError("Only PDF files are supported for automated analysis. Please convert your document to PDF and try again.");
+      return;
+    }
+
     if (type === 'contract') setContractFile(file);
     else setCorrespondenceFile(file);
 
     setUploaded(prev => ({ ...prev, [type]: true }));
+    setError(null);
   };
 
   const handleAnalyze = async () => {
-    if (!contractFile || !correspondenceFile) return;
+    console.log("Analyze button clicked (Frontend Refined)");
+    if (!contractFile || !correspondenceFile) {
+      setError("Please upload both the contract and the correspondence.");
+      return;
+    }
     
     setAnalyzing(true);
+    setError(null);
+
     try {
-      const formData = new FormData();
-      formData.append('contract', contractFile);
-      formData.append('correspondence', correspondenceFile);
-
-      const response = await fetch('/api/analyze', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error('Analysis failed');
+      // 1. Check API Key
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        throw new Error("Gemini API Key is missing. Please add it in the application settings (Settings -> API Keys).");
+      }
+      if (apiKey.length < 20) {
+        throw new Error("The Gemini API Key seems too short. Please ensure you have copied the full key from Google AI Studio.");
       }
 
+      // 2. Check File Sizes (inlineData limit is ~20MB)
+      const MAX_INLINE_SIZE = 15 * 1024 * 1024; // 15MB
+      if (contractFile.size > MAX_INLINE_SIZE || correspondenceFile.size > MAX_INLINE_SIZE) {
+        throw new Error("One of the files is too large for instant analysis (max 15MB). Please try a smaller or compressed PDF.");
+      }
+
+      const ai = new GoogleGenAI({ apiKey });
+
+      // 3. Prepare Files
+      console.log("Converting files to base64...");
+      const [contractBase64, correspondenceBase64] = await Promise.all([
+        fileToBase64(contractFile),
+        fileToBase64(correspondenceFile)
+      ]);
+
+      console.log("Starting Gemini analysis...");
+      const prompt = `
+        You are a senior construction contract manager. Analyze the following contract and correspondence.
+        
+        Provide a decision summary in JSON format with the following fields:
+        - executiveConclusion (string, max 3 sentences)
+        - scopeStatus (string, e.g., "In Scope", "Out of Scope")
+        - primaryResponsibility (string)
+        - secondaryResponsibility (string)
+        - extraMoneyLikely (boolean)
+        - extraTimeLikely (boolean)
+        - claimableAmount (string)
+        - extraDays (string)
+        - noticeDeadline (string, ISO date)
+        - strategicRecommendation (string)
+        - keyRisks (array of { title: string, description: string })
+        
+        IMPORTANT: Return ONLY the raw JSON object. Do not include markdown formatting.
+      `;
+
+      // 4. Call Gemini with fallback
+      let result;
+      try {
+        console.log("Attempting with gemini-3-flash-preview...");
+        result = await ai.models.generateContent({
+          model: 'gemini-3-flash-preview',
+          contents: {
+            parts: [
+              { inlineData: { data: contractBase64, mimeType: contractFile.type || 'application/pdf' } },
+              { inlineData: { data: correspondenceBase64, mimeType: correspondenceFile.type || 'application/pdf' } },
+              { text: prompt }
+            ]
+          },
+          config: {
+            responseMimeType: 'application/json',
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                executiveConclusion: { type: Type.STRING },
+                scopeStatus: { type: Type.STRING },
+                primaryResponsibility: { type: Type.STRING },
+                secondaryResponsibility: { type: Type.STRING },
+                extraMoneyLikely: { type: Type.BOOLEAN },
+                extraTimeLikely: { type: Type.BOOLEAN },
+                claimableAmount: { type: Type.STRING },
+                extraDays: { type: Type.STRING },
+                noticeDeadline: { type: Type.STRING },
+                strategicRecommendation: { type: Type.STRING },
+                keyRisks: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      title: { type: Type.STRING },
+                      description: { type: Type.STRING }
+                    }
+                  }
+                }
+              },
+              required: [
+                "executiveConclusion", "scopeStatus", "primaryResponsibility", 
+                "secondaryResponsibility", "extraMoneyLikely", "extraTimeLikely", 
+                "claimableAmount", "extraDays", "noticeDeadline", 
+                "strategicRecommendation", "keyRisks"
+              ]
+            }
+          }
+        });
+      } catch (firstTryError) {
+        console.warn("gemini-3-flash-preview failed, falling back to gemini-flash-latest:", firstTryError);
+        try {
+          result = await ai.models.generateContent({
+            model: 'gemini-flash-latest',
+            contents: {
+              parts: [
+                { inlineData: { data: contractBase64, mimeType: contractFile.type || 'application/pdf' } },
+                { inlineData: { data: correspondenceBase64, mimeType: correspondenceFile.type || 'application/pdf' } },
+                { text: prompt }
+              ]
+            },
+            config: {
+              responseMimeType: 'application/json'
+            }
+          });
+        } catch (secondTryError) {
+          console.error("All Gemini models failed:", secondTryError);
+          throw new Error(`Gemini API call failed: ${secondTryError instanceof Error ? secondTryError.message : 'Unknown error'}. Please check your internet connection and API key.`);
+        }
+      }
+
+      console.log("Gemini analysis completed");
+      if (!result.text) throw new Error("Empty response from Gemini");
+
+      const cleanJson = result.text.replace(/```json|```/g, "").trim();
+      const analysis = JSON.parse(cleanJson);
+
+      // 4. Save to Backend
+      console.log("Saving analysis to backend...");
+      const saveResponse = await fetch('/api/save-analysis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          analysis,
+          contract: {
+            id: `doc-${Date.now()}`,
+            name: contractFile.name,
+            type: 'contract',
+            metadata: { fileSize: contractFile.size, mimeType: contractFile.type, uploadedAt: new Date().toISOString() }
+          },
+          correspondence: {
+            id: `doc-${Date.now()}-corr`,
+            name: correspondenceFile.name,
+            type: 'correspondence',
+            metadata: { fileSize: correspondenceFile.size, mimeType: correspondenceFile.type, uploadedAt: new Date().toISOString() }
+          }
+        })
+      });
+
+      if (!saveResponse.ok) throw new Error("Failed to save analysis to server");
+
       window.location.href = '/summary';
-    } catch (error) {
-      console.error('Analysis failed:', error);
-      alert('Analysis failed. Please try again.');
+    } catch (err) {
+      console.error('Analysis failed:', err);
+      const message = err instanceof Error ? err.message : 'An unexpected error occurred during analysis.';
+      setError(message);
     } finally {
       setAnalyzing(false);
     }
@@ -56,22 +215,72 @@ export default function IntakePage() {
         ref={contractInputRef} 
         className="hidden" 
         onChange={(e) => handleFileChange(e, 'contract')}
-        accept=".pdf,.docx"
+        accept=".pdf"
       />
       <input 
         type="file" 
         ref={correspondenceInputRef} 
         className="hidden" 
         onChange={(e) => handleFileChange(e, 'correspondence')}
-        accept=".pdf,.docx"
+        accept=".pdf"
       />
 
-      <div className="mb-8">
-        <h1 className="text-4xl font-extrabold text-on-surface tracking-tight mb-2 font-headline">New Change Analysis</h1>
-        <p className="text-on-surface-variant text-lg max-w-2xl font-medium opacity-80">
-          Upload project documentation to perform an automated legal and financial risk assessment of the proposed variation.
-        </p>
+      <div className="mb-8 flex justify-between items-start">
+        <div>
+          <h1 className="text-4xl font-extrabold text-on-surface tracking-tight mb-2 font-headline">New Change Analysis</h1>
+          <p className="text-on-surface-variant text-lg max-w-2xl font-medium opacity-80">
+            Upload project documentation to perform an automated legal and financial risk assessment of the proposed variation.
+          </p>
+        </div>
+        <div className="flex flex-col items-end gap-2">
+          <div className={`px-4 py-2 rounded-full border flex items-center gap-2 text-xs font-bold transition-all ${
+            process.env.GEMINI_API_KEY 
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-700' 
+              : 'bg-amber-50 border-amber-200 text-amber-700'
+          }`}>
+            <div className={`w-2 h-2 rounded-full ${process.env.GEMINI_API_KEY ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+            {process.env.GEMINI_API_KEY ? 'Gemini API: Connected' : 'Gemini API: Key Missing'}
+          </div>
+          {process.env.GEMINI_API_KEY && (
+            <button 
+              onClick={async () => {
+                try {
+                  const key = process.env.GEMINI_API_KEY || "";
+                  if (key.length < 20) throw new Error("Key is too short");
+                  const ai = new GoogleGenAI({ apiKey: key });
+                  const res = await ai.models.generateContent({
+                    model: 'gemini-flash-latest',
+                    contents: "Say 'Connection Successful'"
+                  });
+                  alert(`Success: ${res.text || "Empty response"}`);
+                } catch (e) {
+                  const msg = e instanceof Error ? e.message : String(e);
+                  console.error("Connection test failed:", e);
+                  alert(`Connection failed: ${msg}\n\nCheck if your API key is correct in Settings.`);
+                }
+              }}
+              className="text-[10px] font-bold text-primary hover:underline"
+            >
+              Test Connection
+            </button>
+          )}
+        </div>
       </div>
+
+      {error && (
+        <motion.div 
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3 text-red-700 shadow-sm"
+        >
+          <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+          <div className="text-sm">
+            <p className="font-bold mb-1">Analysis Error</p>
+            <p className="font-medium">{error}</p>
+            <p className="mt-2 text-xs opacity-70">Tip: Ensure your API key is set in the application settings and your files are not too large (max 4MB for instant analysis).</p>
+          </div>
+        </motion.div>
+      )}
 
       <div className="grid grid-cols-12 gap-10">
         <div className="col-span-8 flex flex-col gap-10">
@@ -134,7 +343,7 @@ export default function IntakePage() {
                     </div>
                     <div className="text-center">
                       <p className="text-sm font-bold text-on-surface">Upload Contract</p>
-                      <p className="text-[11px] text-slate-500 mt-1">PDF, DOCX up to 50MB</p>
+                      <p className="text-[11px] text-slate-500 mt-1">PDF up to 50MB</p>
                     </div>
                   </button>
                 )}
@@ -163,7 +372,7 @@ export default function IntakePage() {
                         : 'Upload Correspondence'}
                     </p>
                     <p className="text-[11px] text-slate-500 mt-1">
-                      {uploaded.correspondence ? 'Successfully Ingested' : 'Emails, RFIs, or minutes'}
+                      {uploaded.correspondence ? 'Successfully Ingested' : 'PDF only (Emails, RFIs, or minutes)'}
                     </p>
                   </div>
                 </button>
