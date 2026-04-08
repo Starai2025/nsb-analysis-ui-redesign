@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { FileUp, Mail, ArrowRight, CheckCircle2, Info, Loader2, AlertCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 import { DocumentType } from '../types';
+import { saveCurrentThread } from '../lib/db';
 
 export default function IntakePage() {
   const navigate = useNavigate();
@@ -76,6 +77,12 @@ export default function IntakePage() {
       if (!response.ok) {
         throw new Error(data.error || 'Analysis failed on the server.');
       }
+
+      // Persist to IndexedDB — primary client-side store
+      await saveCurrentThread({
+        analysis:    data.analysis,
+        projectData: data.projectData,
+      });
 
       stopTimer();
       navigate('/summary');

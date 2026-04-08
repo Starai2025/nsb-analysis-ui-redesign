@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle, ShieldCheck, Banknote, Clock,
-  CalendarClock, Calculator, History, CheckCircle2, Loader2
+  CalendarClock, Calculator, History, CheckCircle2,
+  Loader2, RotateCcw
 } from 'lucide-react';
+import { loadCurrentThread, saveCurrentThread, clearCurrentThread } from '../lib/db';
 
 function safeDate(value: string): string {
   if (!value || value === 'Not specified') return 'Not specified';
@@ -24,45 +26,75 @@ export default function DecisionSummaryPage() {
 
   useEffect(() => {
     const slowTimer = setTimeout(() => setShowSlowLoading(true), 5000);
-    const fetchAnalysis = async () => {
+
+    const load = async () => {
       try {
-        const response = await fetch('/api/store');
-        const data = await response.json();
+        // Primary: IndexedDB
+        const thread = await loadCurrentThread();
+        if (thread?.analysis) {
+          setAnalysis(thread.analysis);
+          setProjectData(thread.projectData ?? null);
+          setClaimableAmount(thread.analysis.claimableAmount ?? '');
+          setExtraDays(thread.analysis.extraDays ?? '');
+          setSecondaryResp(thread.analysis.secondaryResponsibility ?? '');
+          return;
+        }
+        // Fallback: server store (handles direct navigation before IndexedDB is populated)
+        const res  = await fetch('/api/store');
+        const data = await res.json();
         if (data.analysis) {
           setAnalysis(data.analysis);
           setProjectData(data.projectData ?? null);
           setClaimableAmount(data.analysis.claimableAmount ?? '');
           setExtraDays(data.analysis.extraDays ?? '');
           setSecondaryResp(data.analysis.secondaryResponsibility ?? '');
+          // Backfill IndexedDB from server
+          await saveCurrentThread({ analysis: data.analysis, projectData: data.projectData ?? { name: '', contractNumber: '', changeRequestId: '' } });
         }
-      } catch (error) {
-        console.error('Failed to fetch analysis:', error);
+      } catch (err) {
+        console.error('Failed to load analysis:', err);
       } finally {
         setLoading(false);
         clearTimeout(slowTimer);
       }
     };
-    fetchAnalysis();
+
+    load();
     return () => clearTimeout(slowTimer);
   }, []);
 
   const handleSaveAndGenerate = async () => {
     setSaving(true);
     try {
-      const updatedAnalysis = { ...analysis, claimableAmount, extraDays, secondaryResponsibility: secondaryResp };
-      const response = await fetch('/api/save-analysis', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ analysis: updatedAnalysis, projectData }),
+      const updatedAnalysis = {
+        ...analysis,
+        claimableAmount,
+        extraDays,
+        secondaryResponsibility: secondaryResp,
+      };
+      // Save edits to IndexedDB
+      await saveCurrentThread({
+        analysis:    updatedAnalysis,
+        projectData: projectData ?? { name: '', contractNumber: '', changeRequestId: '' },
       });
-      if (!response.ok) throw new Error('Failed to save changes');
+      // Also sync to server as backup
+      await fetch('/api/save-analysis', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ analysis: updatedAnalysis, projectData }),
+      });
       navigate('/report');
-    } catch (error) {
-      console.error('Save failed:', error);
+    } catch (err) {
+      console.error('Save failed:', err);
       alert('Failed to save changes. Please try again.');
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleNewAnalysis = async () => {
+    await clearCurrentThread();
+    navigate('/intake');
   };
 
   if (loading) {
@@ -73,7 +105,7 @@ export default function DecisionSummaryPage() {
           <p className="text-on-surface-variant font-bold animate-pulse">Loading Analysis Results...</p>
           {showSlowLoading && (
             <p className="text-xs text-slate-500 mt-2 animate-bounce">
-              Still working... complex documents can take up to a minute.
+              Still loading... complex documents can take a moment.
             </p>
           )}
         </div>
@@ -86,14 +118,12 @@ export default function DecisionSummaryPage() {
       <div className="flex flex-col items-center justify-center h-[calc(100vh-4rem)] gap-4">
         <AlertTriangle size={48} className="text-amber-500" />
         <p className="text-on-surface-variant font-bold">No analysis found. Please run an analysis first.</p>
-        <div className="flex gap-4">
-          <button onClick={() => window.location.reload()} className="bg-slate-100 text-on-surface px-6 py-2 rounded-lg font-bold hover:bg-slate-200 transition-all">
-            Refresh Page
-          </button>
-          <button onClick={() => navigate('/intake')} className="bg-primary text-white px-6 py-2 rounded-lg font-bold hover:bg-primary-dim transition-all">
-            Go to Intake
-          </button>
-        </div>
+        <button
+          onClick={() => navigate('/intake')}
+          className="bg-primary text-white px-6 py-2 rounded-lg font-bold hover:bg-primary-dim transition-all"
+        >
+          Go to Intake
+        </button>
       </div>
     );
   }
@@ -104,24 +134,33 @@ export default function DecisionSummaryPage() {
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-12">
+      {/* Header */}
       <section className="space-y-2">
-        <div className="flex items-center gap-2">
-          {projectLabel && (
-            <span className="bg-primary/10 text-primary px-3 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase">
-              {projectLabel}
-            </span>
-          )}
-          {projectData?.contractNumber && (
-            <span className="text-on-surface-variant text-sm flex items-center gap-1">
-              <History size={14} /> {projectData.contractNumber}
-            </span>
-          )}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {projectLabel && (
+              <span className="bg-primary/10 text-primary px-3 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase">
+                {projectLabel}
+              </span>
+            )}
+            {projectData?.contractNumber && (
+              <span className="text-on-surface-variant text-sm flex items-center gap-1">
+                <History size={14} /> {projectData.contractNumber}
+              </span>
+            )}
+          </div>
+          <button
+            onClick={handleNewAnalysis}
+            className="flex items-center gap-2 text-xs font-bold text-on-surface-variant hover:text-primary transition-colors"
+          >
+            <RotateCcw size={14} /> New Analysis
+          </button>
         </div>
         <h1 className="text-4xl font-extrabold text-on-surface leading-tight font-headline">Decision Summary</h1>
         <p className="text-on-surface-variant max-w-2xl text-lg">Automated assessment for the uploaded documentation.</p>
       </section>
 
-      {/* Executive conclusion */}
+      {/* Executive Conclusion */}
       <section className="bg-primary/5 border border-primary/10 rounded-2xl p-8 relative overflow-hidden">
         <div className="absolute top-0 right-0 p-4">
           <ShieldCheck className="text-primary/20" size={48} />
@@ -132,7 +171,7 @@ export default function DecisionSummaryPage() {
         </div>
       </section>
 
-      {/* Metric cards */}
+      {/* Metric Cards */}
       <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <div className="bg-white p-6 rounded-xl shadow-lg border-l-4 border-rose-500 hover:-translate-y-1 transition-all">
           <div className="text-on-surface-variant text-xs font-bold uppercase tracking-widest mb-4">Scope Status</div>
@@ -215,9 +254,9 @@ export default function DecisionSummaryPage() {
         </div>
       </section>
 
-      {/* Strategic recommendation + risks */}
+      {/* Strategic Recommendation + Key Risks */}
       <section className="bg-slate-900 text-white rounded-2xl p-10 relative overflow-hidden shadow-2xl">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-primary/20 blur-[120px] -mr-48 -mt-48"></div>
+        <div className="absolute top-0 right-0 w-96 h-96 bg-primary/20 blur-[120px] -mr-48 -mt-48" />
         <div className="relative z-10 grid md:grid-cols-2 gap-12">
           <div className="space-y-6">
             <div className="space-y-2">
@@ -234,8 +273,8 @@ export default function DecisionSummaryPage() {
               </h2>
             </div>
             <div className="space-y-4">
-              {analysis.keyRisks?.map((risk: any, index: number) => (
-                <div key={index} className="flex items-start gap-4 p-4 bg-white/5 hover:bg-white/10 transition-colors rounded-xl border border-white/10">
+              {analysis.keyRisks?.map((risk: any, i: number) => (
+                <div key={i} className="flex items-start gap-4 p-4 bg-white/5 hover:bg-white/10 transition-colors rounded-xl border border-white/10">
                   <div className="w-10 h-10 rounded-lg bg-rose-500/20 flex items-center justify-center shrink-0">
                     <AlertTriangle className="text-rose-500" size={20} />
                   </div>
@@ -250,6 +289,7 @@ export default function DecisionSummaryPage() {
         </div>
       </section>
 
+      {/* Actions */}
       <div className="flex justify-center gap-6">
         <button
           onClick={handleSaveAndGenerate}
