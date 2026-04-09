@@ -69,19 +69,26 @@ export default function IntakePage() {
       formData.append('contractNumber',    contractNumber);
       formData.append('changeRequestId',   changeRequestId);
 
-      setAnalysisStatus('Consulting Gemini AI (this may take up to a minute)...');
+      setAnalysisStatus('Extracting document text (page-by-page)...');
 
       const response = await fetch('/api/analyze', { method: 'POST', body: formData });
+
+      setAnalysisStatus('Consulting Gemini AI (this may take up to a minute)...');
+
       const data     = await response.json();
 
       if (!response.ok) {
         throw new Error(data.error || 'Analysis failed on the server.');
       }
 
-      // Persist to IndexedDB — primary client-side store
+      setAnalysisStatus('Saving results to local storage...');
+
+      // Persist full ingested documents + analysis to IndexedDB
       await saveCurrentThread({
-        analysis:    data.analysis,
-        projectData: data.projectData,
+        analysis:       data.analysis,
+        projectData:    data.projectData,
+        contract:       data.contract,
+        correspondence: data.correspondence,
       });
 
       stopTimer();

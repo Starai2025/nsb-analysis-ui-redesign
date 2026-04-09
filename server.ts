@@ -5,18 +5,22 @@ import { fileURLToPath } from "url";
 import fs from "fs/promises";
 import multer from "multer";
 import mammoth from "mammoth";
+import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 import { GoogleGenAI, Type } from "@google/genai";
 import "dotenv/config";
-import { IngestionStore } from "./src/types.js";
+import { IngestionStore, ExtractedDocument, ExtractedChunk, ExtractedPage, DocumentType } from "./src/types.js";
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname  = path.dirname(__filename);
 
 const STORE_PATH = path.join(__dirname, "data-store.json");
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
+const upload     = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
+
+// Disable the worker for server-side use
+(pdfjsLib as any).GlobalWorkerOptions.workerSrc = "";
 
 // ---------------------------------------------------------------------------
-// Persistent store (file-based for Phase 1; replaced by IndexedDB in Phase 2)
+// Persistent store (server-side backup — primary store is client IndexedDB)
 // ---------------------------------------------------------------------------
 
 async function loadStore(): Promise<IngestionStore> {
@@ -36,26 +40,179 @@ let store: IngestionStore = {};
 loadStore().then((s) => (store = s));
 
 // ---------------------------------------------------------------------------
-// Document processing helpers
+// Chunking helpers
 // ---------------------------------------------------------------------------
 
-async function processFile(
-  buffer: Buffer,
-  mimetype: string,
-  originalname: string
-): Promise<{ inlineData?: { data: string; mimeType: string }; text?: string }> {
-  if (mimetype === "application/pdf") {
-    return { inlineData: { data: buffer.toString("base64"), mimeType: "application/pdf" } };
+const CHUNK_SIZE    = 2000;  // ~500 tokens
+const CHUNK_OVERLAP = 400;   // ~100 tokens
+const MAX_CHUNKS    = 200;
+
+function chunkText(
+  text: string,
+  sourceId: string,
+  pageNumber?: number
+): ExtractedChunk[] {
+  const chunks: ExtractedChunk[] = [];
+  let index = 0;
+  let pos   = 0;
+
+  while (pos < text.length && chunks.length < MAX_CHUNKS) {
+    const end   = Math.min(pos + CHUNK_SIZE, text.length);
+    const slice = text.slice(pos, end).trim();
+
+    if (slice.length > 50) {                    // skip trivially short chunks
+      chunks.push({
+        id:         `${sourceId}-chunk-${index}`,
+        text:       slice,
+        pageNumber,
+        sourceId,
+        charStart:  pos,
+        charEnd:    end,
+      });
+      index++;
+    }
+
+    if (end === text.length) break;
+    pos += CHUNK_SIZE - CHUNK_OVERLAP;
   }
-  if (mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
-    const result = await mammoth.extractRawText({ buffer });
-    return { text: `Document: ${originalname}\n\n${result.value}` };
-  }
-  throw new Error(`Unsupported file type: ${mimetype}`);
+
+  return chunks;
 }
 
 // ---------------------------------------------------------------------------
-// Gemini analysis (server-side only — key never leaves the server)
+// Document ingestion
+// ---------------------------------------------------------------------------
+
+async function ingestPDF(
+  buffer: Buffer,
+  docId: string
+): Promise<{ pages: ExtractedPage[]; chunks: ExtractedChunk[] }> {
+  const pages:  ExtractedPage[]  = [];
+  const chunks: ExtractedChunk[] = [];
+
+  try {
+    const uint8 = new Uint8Array(buffer);
+    const pdf   = await (pdfjsLib as any).getDocument({ data: uint8, disableFontFace: true, verbosity: 0 }).promise;
+
+    for (let p = 1; p <= pdf.numPages; p++) {
+      try {
+        const page    = await pdf.getPage(p);
+        const content = await page.getTextContent();
+        const text    = content.items
+          .map((item: any) => ("str" in item ? item.str : ""))
+          .join(" ")
+          .replace(/\s+/g, " ")
+          .trim();
+
+        if (text.length > 0) {
+          pages.push({ pageNumber: p, text });
+          const pageChunks = chunkText(text, docId, p);
+          for (const c of pageChunks) {
+            if (chunks.length < MAX_CHUNKS) chunks.push(c);
+          }
+        }
+      } catch (pageErr) {
+        console.warn(`Could not extract page ${p}:`, pageErr);
+      }
+    }
+  } catch (err) {
+    console.warn("PDF extraction failed (possibly encrypted/image-only):", err);
+    // Return empty — analysis will still work via base64
+  }
+
+  return { pages, chunks };
+}
+
+async function ingestDOCX(
+  buffer: Buffer,
+  docId: string
+): Promise<{ pages: ExtractedPage[]; chunks: ExtractedChunk[] }> {
+  const pages:  ExtractedPage[]  = [];
+  const chunks: ExtractedChunk[] = [];
+
+  try {
+    const result    = await mammoth.extractRawText({ buffer });
+    const fullText  = result.value;
+
+    // Approximate page breaks: split on double newlines, group ~3000 chars per page
+    const PAGE_SIZE = 3000;
+    let pageNumber  = 1;
+    let pos         = 0;
+
+    while (pos < fullText.length) {
+      const end  = Math.min(pos + PAGE_SIZE, fullText.length);
+      const text = fullText.slice(pos, end).trim();
+
+      if (text.length > 0) {
+        pages.push({ pageNumber, text });
+        const pageChunks = chunkText(text, docId, pageNumber);
+        for (const c of pageChunks) {
+          if (chunks.length < MAX_CHUNKS) chunks.push(c);
+        }
+        pageNumber++;
+      }
+
+      pos += PAGE_SIZE;
+    }
+  } catch (err) {
+    console.warn("DOCX extraction failed:", err);
+  }
+
+  return { pages, chunks };
+}
+
+async function ingestDocument(
+  buffer:       Buffer,
+  mimetype:     string,
+  originalname: string,
+  type:         DocumentType,
+  fileSize:     number
+): Promise<ExtractedDocument> {
+  const id  = `doc-${Date.now()}-${type}`;
+  const now = new Date().toISOString();
+
+  let pages:  ExtractedPage[]  = [];
+  let chunks: ExtractedChunk[] = [];
+
+  if (mimetype === "application/pdf") {
+    ({ pages, chunks } = await ingestPDF(buffer, id));
+  } else if (mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
+    ({ pages, chunks } = await ingestDOCX(buffer, id));
+  }
+
+  console.log(`  Ingested "${originalname}": ${pages.length} pages, ${chunks.length} chunks`);
+
+  return {
+    id,
+    name: originalname,
+    type,
+    pages,
+    chunks,
+    metadata: { fileSize, mimeType: mimetype, uploadedAt: now },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Gemini part builder — uses extracted text for DOCX, base64 for PDF
+// ---------------------------------------------------------------------------
+
+async function buildGeminiPart(
+  buffer:   Buffer,
+  mimetype: string,
+  doc:      ExtractedDocument
+): Promise<{ inlineData?: { data: string; mimeType: string }; text?: string }> {
+  if (mimetype === "application/pdf") {
+    // Use base64 for Gemini vision — most accurate for PDFs
+    return { inlineData: { data: buffer.toString("base64"), mimeType: "application/pdf" } };
+  }
+  // For DOCX, build a structured text representation from extracted pages
+  const text = doc.pages?.map(p => `[Page ${p.pageNumber}]\n${p.text}`).join("\n\n")
+    ?? `Document: ${doc.name}`;
+  return { text: `Document: ${doc.name}\n\n${text}` };
+}
+
+// ---------------------------------------------------------------------------
+// Gemini analysis
 // ---------------------------------------------------------------------------
 
 const RESPONSE_SCHEMA = {
@@ -113,7 +270,7 @@ async function runAnalysis(contractPart: any, correspondencePart: any): Promise<
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("GEMINI_API_KEY is not set on the server.");
 
-  const ai = new GoogleGenAI({ apiKey });
+  const ai     = new GoogleGenAI({ apiKey });
   const prompt = "Analyze the contract and correspondence. Return the decision summary JSON.";
 
   const callGemini = (model: string) =>
@@ -121,10 +278,10 @@ async function runAnalysis(contractPart: any, correspondencePart: any): Promise<
       model,
       contents: { parts: [contractPart, correspondencePart, { text: prompt }] },
       config: {
-        systemInstruction: SYSTEM_INSTRUCTION,
-        responseMimeType: "application/json",
-        responseSchema: RESPONSE_SCHEMA,
-        temperature: 0.1,
+        systemInstruction:  SYSTEM_INSTRUCTION,
+        responseMimeType:   "application/json",
+        responseSchema:     RESPONSE_SCHEMA,
+        temperature:        0.1,
       },
     });
 
@@ -160,14 +317,14 @@ async function runAnalysis(contractPart: any, correspondencePart: any): Promise<
 // ---------------------------------------------------------------------------
 
 async function startServer() {
-  const app = express();
+  const app  = express();
   const PORT = Number(process.env.PORT) || 3000;
 
   app.get("/api/health", (_req, res) => {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
   });
 
-  // ── Core analysis endpoint ─────────────────────────────────────────────────
+  // ── Core: ingest + analyze ─────────────────────────────────────────────────
   app.post(
     "/api/analyze",
     upload.fields([
@@ -176,11 +333,11 @@ async function startServer() {
     ]),
     async (req, res) => {
       try {
-        const files = req.files as Record<string, Express.Multer.File[]>;
-        const contractFile       = files?.contract?.[0];
-        const correspondenceFile = files?.correspondence?.[0];
+        const files          = req.files as Record<string, Express.Multer.File[]>;
+        const contractFile   = files?.contract?.[0];
+        const corrFile       = files?.correspondence?.[0];
 
-        if (!contractFile || !correspondenceFile) {
+        if (!contractFile || !corrFile) {
           res.status(400).json({ error: "Both 'contract' and 'correspondence' files are required." });
           return;
         }
@@ -193,45 +350,51 @@ async function startServer() {
           res.status(400).json({ error: `Unsupported contract type: ${contractFile.mimetype}` });
           return;
         }
-        if (!supported.includes(correspondenceFile.mimetype)) {
-          res.status(400).json({ error: `Unsupported correspondence type: ${correspondenceFile.mimetype}` });
+        if (!supported.includes(corrFile.mimetype)) {
+          res.status(400).json({ error: `Unsupported correspondence type: ${corrFile.mimetype}` });
           return;
         }
 
-        console.log(`Analyzing: "${contractFile.originalname}" + "${correspondenceFile.originalname}"`);
+        console.log(`\nIngesting: "${contractFile.originalname}" + "${corrFile.originalname}"`);
 
-        const [contractPart, correspondencePart] = await Promise.all([
-          processFile(contractFile.buffer, contractFile.mimetype, contractFile.originalname),
-          processFile(correspondenceFile.buffer, correspondenceFile.mimetype, correspondenceFile.originalname),
+        // Step 1: Ingest both documents (extract pages + chunks)
+        const [contractDoc, correspondenceDoc] = await Promise.all([
+          ingestDocument(contractFile.buffer, contractFile.mimetype, contractFile.originalname, "contract",      contractFile.size),
+          ingestDocument(corrFile.buffer,     corrFile.mimetype,     corrFile.originalname,     "correspondence", corrFile.size),
         ]);
 
+        // Step 2: Build Gemini parts from ingested docs
+        const [contractPart, correspondencePart] = await Promise.all([
+          buildGeminiPart(contractFile.buffer, contractFile.mimetype, contractDoc),
+          buildGeminiPart(corrFile.buffer,     corrFile.mimetype,     correspondenceDoc),
+        ]);
+
+        // Step 3: Run analysis
+        console.log("Running Gemini analysis...");
         const analysis = await runAnalysis(contractPart, correspondencePart);
 
         const projectData = {
-          name:            String(req.body.projectName        || ""),
-          contractNumber:  String(req.body.contractNumber     || ""),
-          changeRequestId: String(req.body.changeRequestId    || ""),
+          name:            String(req.body.projectName     || ""),
+          contractNumber:  String(req.body.contractNumber  || ""),
+          changeRequestId: String(req.body.changeRequestId || ""),
         };
 
-        const now = new Date().toISOString();
-        const contractDoc = {
-          id:   `doc-${Date.now()}`,
-          name: contractFile.originalname,
-          type: "contract" as const,
-          metadata: { fileSize: contractFile.size, mimeType: contractFile.mimetype, uploadedAt: now },
-        };
-        const correspondenceDoc = {
-          id:   `doc-${Date.now()}-corr`,
-          name: correspondenceFile.originalname,
-          type: "correspondence" as const,
-          metadata: { fileSize: correspondenceFile.size, mimeType: correspondenceFile.mimetype, uploadedAt: now },
-        };
-
-        store = { analysis, projectData, contract: contractDoc, correspondence: correspondenceDoc };
+        // Step 4: Persist to server backup store (without large page text to keep file small)
+        const contractDocMeta  = { ...contractDoc,      pages: undefined, chunks: undefined };
+        const corrDocMeta      = { ...correspondenceDoc, pages: undefined, chunks: undefined };
+        store = { analysis, projectData, contract: contractDocMeta, correspondence: corrDocMeta };
         await saveStore(store);
 
-        console.log("Analysis complete and saved.");
-        res.json({ success: true, analysis, projectData });
+        console.log("Analysis complete.\n");
+
+        // Step 5: Return full ingested docs to client for IndexedDB storage
+        res.json({
+          success:        true,
+          analysis,
+          projectData,
+          contract:       contractDoc,
+          correspondence: correspondenceDoc,
+        });
       } catch (err) {
         const message = err instanceof Error ? err.message : "Analysis failed.";
         console.error("Analysis error:", message);
@@ -240,7 +403,7 @@ async function startServer() {
     }
   );
 
-  // ── Patch analysis edits (from DecisionSummaryPage) ───────────────────────
+  // ── Patch edits from DecisionSummaryPage ───────────────────────────────────
   app.post("/api/save-analysis", express.json({ limit: "10mb" }), async (req, res) => {
     try {
       const { analysis, projectData } = req.body;
@@ -248,12 +411,12 @@ async function startServer() {
       if (projectData) store.projectData = projectData;
       await saveStore(store);
       res.json({ success: true });
-    } catch (err) {
+    } catch {
       res.status(500).json({ error: "Failed to save analysis." });
     }
   });
 
-  // ── Read current store ─────────────────────────────────────────────────────
+  // ── Read backup store ──────────────────────────────────────────────────────
   app.get("/api/store", (_req, res) => {
     res.json(store);
   });

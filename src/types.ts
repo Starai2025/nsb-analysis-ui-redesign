@@ -41,6 +41,8 @@ export interface ExtractedChunk {
   text: string;
   pageNumber?: number;
   sourceId: string;
+  charStart?: number;
+  charEnd?: number;
 }
 
 export interface ExtractedDocument {
