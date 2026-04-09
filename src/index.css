@@ -18,3 +18,48 @@
     @apply font-sans bg-surface text-on-surface;
   }
 }
+
+/* ── Print styles ── */
+@media print {
+  /* Hide chrome */
+  aside,
+  header,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* Full width content */
+  body {
+    background: white;
+  }
+
+  /* Remove sidebar offset */
+  .ml-64 {
+    margin-left: 0 !important;
+  }
+
+  /* Remove shadows and decorative backgrounds */
+  .shadow-2xl,
+  .shadow-xl,
+  .shadow-lg,
+  .shadow-sm {
+    box-shadow: none !important;
+  }
+
+  /* Page break control */
+  section {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Ensure backgrounds print */
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Margins */
+  @page {
+    margin: 20mm;
+  }
+}
