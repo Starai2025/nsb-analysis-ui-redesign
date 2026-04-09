@@ -73,7 +73,7 @@ export default function IntakePage() {
 
       const response = await fetch('/api/analyze', { method: 'POST', body: formData });
 
-      setAnalysisStatus('Consulting Gemini AI (this may take up to a minute)...');
+      setAnalysisStatus('Consulting Claude AI (this may take up to a minute)...');
 
       const data     = await response.json();
 
@@ -128,7 +128,7 @@ export default function IntakePage() {
           <div className="text-sm">
             <p className="font-bold mb-1">Analysis Error</p>
             <p className="font-medium">{error}</p>
-            <p className="mt-2 text-xs opacity-70">Ensure your server is running with GEMINI_API_KEY set in your .env file.</p>
+            <p className="mt-2 text-xs opacity-70">Ensure your server is running with ANTHROPIC_API_KEY set in your .env file.</p>
           </div>
         </motion.div>
       )}
@@ -277,7 +277,7 @@ export default function IntakePage() {
             <div>
               <p className="text-sm font-bold mb-1.5">Server-Side AI Analysis</p>
               <p className="text-[13px] text-white/70 leading-relaxed font-medium">
-                Analysis runs on the Express server using your GEMINI_API_KEY. Your API key is never sent to the browser.
+                Analysis runs on the Express server using your ANTHROPIC_API_KEY. Your API key is never sent to the browser.
               </p>
             </div>
           </div>

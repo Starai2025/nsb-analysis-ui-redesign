@@ -35,8 +35,8 @@ Verify each route loads without a white screen or console error:
 
 ### 5. API Key Status Indicator
 On IntakePage, the API key status badge should show:
-- ✅ Green "Gemini API: Connected" if `VITE_GEMINI_API_KEY` is set
-- ⚠️ Amber "Gemini API: Key Missing" if not set
+- ✅ Green "Claude API: Connected" if `VITE_ANTHROPIC_API_KEY` is set
+- ⚠️ Amber "Claude API: Key Missing" if not set
 
 ### 6. Navigation Check
 - Sidebar links navigate correctly to all routes

@@ -15,7 +15,7 @@ Currently `AskTheContract.tsx` renders a chat UI shell with no backend. It doesn
 The approach is **client-side RAG**:
 1. User asks a question
 2. Find the most relevant chunks from the stored contract/correspondence
-3. Pass those chunks + the question to Gemini
+3. Pass those chunks + the question to Claude
 4. Stream the response back
 
 ---
@@ -36,7 +36,7 @@ export async function askTheContract(
 - Simple vector-free relevance scoring: score each chunk by keyword overlap with the question
 - Select top 5 most relevant chunks
 - Build a prompt: "Given the following contract clauses, answer the question: [question]"
-- Call `gemini-2.0-flash` with the chunks + question
+- Call `claude-2.0-flash` with the chunks + question
 - Return the response text
 
 ---
@@ -86,7 +86,7 @@ The "Ask a question about these clauses..." input at the bottom of SourcesPage s
 - [ ] Response includes a page or chunk reference (e.g., "per Section 3, Page 1")
 - [ ] Empty state shows when no contract is uploaded
 - [ ] Chat history persists within the session (not across page refreshes)
-- [ ] Error message appears if Gemini call fails
+- [ ] Error message appears if Claude call fails
 - [ ] Suggested questions appear on first open
 
 ## Gate

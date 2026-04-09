@@ -40,7 +40,7 @@ Use `JSON.stringify` / `JSON.parse` with try/catch. Handle storage quota errors 
 ### 2.2 — Update IntakePage to Use localStorage
 **File:** `src/pages/IntakePage.tsx`
 
-After Gemini analysis completes, call `analysisStore.save()` instead of (or in addition to) `POST /api/save-analysis`. Remove the `/api/save-analysis` call if server storage is fully deprecated.
+After Claude analysis completes, call `analysisStore.save()` instead of (or in addition to) `POST /api/save-analysis`. Remove the `/api/save-analysis` call if server storage is fully deprecated.
 
 ---
 

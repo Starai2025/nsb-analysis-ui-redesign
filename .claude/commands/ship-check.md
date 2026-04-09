@@ -9,7 +9,7 @@ Work through every item. All must be ✅ before deploying.
 ---
 
 ### 🔐 Security
-- [ ] No API keys in source code (grep for `AIza`, `sk-`, `GEMINI_API_KEY =`)
+- [ ] No API keys in source code (grep for `AIza`, `sk-`, `ANTHROPIC_API_KEY =`)
 - [ ] `.env` and `.env.local` are in `.gitignore`
 - [ ] No hardcoded email addresses or PII in source
 - [ ] No `console.log` statements that might leak sensitive data
@@ -51,7 +51,7 @@ Work through every item. All must be ✅ before deploying.
 ---
 
 ### 🚀 Deployment
-- [ ] `VITE_GEMINI_API_KEY` is set in the deployment environment
+- [ ] `VITE_ANTHROPIC_API_KEY` is set in the deployment environment
 - [ ] Server's `PORT` env var is configured
 - [ ] `npm run build && node dist/server` starts cleanly (or equivalent)
 - [ ] Production URL is accessible and loads the app

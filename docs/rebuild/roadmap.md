@@ -35,7 +35,7 @@ Never Sign Blind is a construction contract intelligence tool. A project manager
 
 | # | Phase | Status | Key Deliverable |
 |---|-------|--------|-----------------|
-| 1 | Codebase Audit & Stabilization | 🟡 In Progress | Bug-free analysis flow with correct Gemini models |
+| 1 | Codebase Audit & Stabilization | 🟡 In Progress | Bug-free analysis flow with correct Claude models |
 | 2 | State Persistence | ⬜ Not Started | Analysis survives page refresh via localStorage |
 | 3 | Document Ingestion Engine | ⬜ Not Started | Chunked ingestion with page-level citations |
 | 4 | Analysis Engine Hardening | ⬜ Not Started | Reliable, typed, prompt-engineered analysis |

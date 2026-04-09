@@ -10,7 +10,7 @@ Build a proper document ingestion pipeline that extracts text from PDFs and DOCX
 ---
 
 ## Background
-Currently, PDFs are passed as raw base64 blobs to Gemini and DOCX files are converted to a flat text string. This works for the basic analysis but does not enable:
+Currently, PDFs are passed as raw base64 blobs to Claude and DOCX files are converted to a flat text string. This works for the basic analysis but does not enable:
 - Showing the user which clause on which page drove a finding
 - Answering "where does it say that?" in the chat
 - Highlighting specific text in the Sources document viewer
@@ -64,7 +64,7 @@ Extend the persistence service to also store the ingested documents (not just th
 ### 3.4 — Update IntakePage to Use Ingestion Service
 **File:** `src/pages/IntakePage.tsx`
 
-Before calling Gemini, run `ingestFile()` on both uploaded documents. Store the `ExtractedDocument` objects alongside the analysis. Pass the extracted text chunks to the Gemini prompt (rather than raw base64 for very large PDFs).
+Before calling Claude, run `ingestFile()` on both uploaded documents. Store the `ExtractedDocument` objects alongside the analysis. Pass the extracted text chunks to the Claude prompt (rather than raw base64 for very large PDFs).
 
 ---
 

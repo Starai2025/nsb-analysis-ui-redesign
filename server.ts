@@ -6,7 +6,7 @@ import fs from "fs/promises";
 import multer from "multer";
 import mammoth from "mammoth";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
-import { GoogleGenAI, Type } from "@google/genai";
+import Anthropic from "@anthropic-ai/sdk";
 import "dotenv/config";
 import { IngestionStore, ExtractedDocument, ExtractedChunk, ExtractedPage, DocumentType } from "./src/types.js";
 
@@ -60,7 +60,7 @@ function chunkText(
     const end   = Math.min(pos + CHUNK_SIZE, text.length);
     const slice = text.slice(pos, end).trim();
 
-    if (slice.length > 50) {                    // skip trivially short chunks
+    if (slice.length > 50) {
       chunks.push({
         id:         `${sourceId}-chunk-${index}`,
         text:       slice,
@@ -117,7 +117,6 @@ async function ingestPDF(
     }
   } catch (err) {
     console.warn("PDF extraction failed (possibly encrypted/image-only):", err);
-    // Return empty — analysis will still work via base64
   }
 
   return { pages, chunks };
@@ -133,8 +132,6 @@ async function ingestDOCX(
   try {
     const result    = await mammoth.extractRawText({ buffer });
     const fullText  = result.value;
-
-    // Approximate page breaks: split on double newlines, group ~3000 chars per page
     const PAGE_SIZE = 3000;
     let pageNumber  = 1;
     let pos         = 0;
@@ -193,120 +190,136 @@ async function ingestDocument(
 }
 
 // ---------------------------------------------------------------------------
-// Gemini part builder — uses extracted text for DOCX, base64 for PDF
+// Build Claude message content from ingested document
 // ---------------------------------------------------------------------------
 
-async function buildGeminiPart(
+function buildDocumentContent(
   buffer:   Buffer,
   mimetype: string,
   doc:      ExtractedDocument
-): Promise<{ inlineData?: { data: string; mimeType: string }; text?: string }> {
+): Anthropic.MessageParam["content"] {
   if (mimetype === "application/pdf") {
-    // Use base64 for Gemini vision — most accurate for PDFs
-    return { inlineData: { data: buffer.toString("base64"), mimeType: "application/pdf" } };
+    // Send as base64 PDF document block — Claude reads it natively
+    return [
+      {
+        type:   "document",
+        source: {
+          type:       "base64",
+          media_type: "application/pdf",
+          data:       buffer.toString("base64"),
+        },
+        title:       doc.name,
+        cache_control: { type: "ephemeral" },
+      } as any,
+    ];
   }
-  // For DOCX, build a structured text representation from extracted pages
-  const text = doc.pages?.map(p => `[Page ${p.pageNumber}]\n${p.text}`).join("\n\n")
+
+  // DOCX: send structured page text
+  const text = doc.pages?.map((p) => `[Page ${p.pageNumber}]\n${p.text}`).join("\n\n")
     ?? `Document: ${doc.name}`;
-  return { text: `Document: ${doc.name}\n\n${text}` };
+
+  return [{ type: "text", text: `Document: ${doc.name}\n\n${text}` }];
 }
 
 // ---------------------------------------------------------------------------
-// Gemini analysis
+// Claude analysis — structured output via tool use
 // ---------------------------------------------------------------------------
 
-const RESPONSE_SCHEMA = {
-  type: Type.OBJECT,
-  properties: {
-    executiveConclusion:     { type: Type.STRING },
-    scopeStatus:             { type: Type.STRING },
-    primaryResponsibility:   { type: Type.STRING },
-    secondaryResponsibility: { type: Type.STRING },
-    extraMoneyLikely:        { type: Type.BOOLEAN },
-    extraTimeLikely:         { type: Type.BOOLEAN },
-    claimableAmount:         { type: Type.STRING },
-    extraDays:               { type: Type.STRING },
-    noticeDeadline:          { type: Type.STRING },
-    strategicRecommendation: { type: Type.STRING },
-    keyRisks: {
-      type: Type.ARRAY,
-      items: {
-        type: Type.OBJECT,
-        properties: {
-          title:       { type: Type.STRING },
-          description: { type: Type.STRING },
+const ANALYSIS_TOOL: Anthropic.Tool = {
+  name:        "submit_analysis",
+  description: "Submit the structured contract change analysis result.",
+  input_schema: {
+    type: "object",
+    properties: {
+      executiveConclusion:     { type: "string", description: "2-3 sentence summary of the overall impact. Max 300 chars." },
+      scopeStatus:             { type: "string", enum: ["In Scope", "Out of Scope"] },
+      primaryResponsibility:   { type: "string", description: "Who bears primary responsibility. Max 100 chars." },
+      secondaryResponsibility: { type: "string", description: "Secondary responsible party. Max 100 chars." },
+      extraMoneyLikely:        { type: "boolean" },
+      extraTimeLikely:         { type: "boolean" },
+      claimableAmount:         { type: "string", description: "e.g. '$50,000' or 'Not specified'" },
+      extraDays:               { type: "string", description: "e.g. '14 days' or 'Not specified'" },
+      noticeDeadline:          { type: "string", description: "ISO 8601 date (YYYY-MM-DD) or 'Not specified'" },
+      strategicRecommendation: { type: "string", description: "Recommended course of action. Max 500 chars." },
+      keyRisks: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            title:       { type: "string", description: "Max 50 chars" },
+            description: { type: "string", description: "Max 200 chars" },
+          },
+          required: ["title", "description"],
         },
-        required: ["title", "description"],
+        minItems: 1,
+        maxItems: 6,
       },
     },
+    required: [
+      "executiveConclusion", "scopeStatus", "primaryResponsibility",
+      "secondaryResponsibility", "extraMoneyLikely", "extraTimeLikely",
+      "claimableAmount", "extraDays", "noticeDeadline",
+      "strategicRecommendation", "keyRisks",
+    ],
   },
-  required: [
-    "executiveConclusion", "scopeStatus", "primaryResponsibility",
-    "secondaryResponsibility", "extraMoneyLikely", "extraTimeLikely",
-    "claimableAmount", "extraDays", "noticeDeadline",
-    "strategicRecommendation", "keyRisks",
-  ],
 };
 
-const SYSTEM_INSTRUCTION = `
-You are a senior construction contract manager with expertise in AIA A201, DBIA 540,
-and standard heavy civil contract forms.
+const SYSTEM_PROMPT = `You are a senior construction contract manager with deep expertise in AIA A201, DBIA 540, and standard heavy civil contract forms.
 
-Your task: analyze the provided contract and correspondence to determine the impact
-of a proposed change.
+Your task: analyze the provided contract and correspondence to determine the legal and financial impact of a proposed change.
 
 Rules:
 1. Be concise — no repetition, no padding.
-2. Do not generate long ID strings or numbers.
-3. Focus on legal and financial implications.
-4. If a value cannot be determined from the documents, use "Not specified" — never hallucinate.
-5. noticeDeadline must be a valid ISO 8601 date string (YYYY-MM-DD) or "Not specified".
-6. scopeStatus must be exactly "In Scope" or "Out of Scope".
+2. Focus on legal and financial implications.
+3. If a value cannot be determined from the documents, use "Not specified" — never hallucinate.
+4. noticeDeadline must be a valid ISO 8601 date (YYYY-MM-DD) or "Not specified".
+5. scopeStatus must be exactly "In Scope" or "Out of Scope".
+6. Always call the submit_analysis tool with your findings — do not respond with plain text.`;
 
-Return ONLY valid JSON matching the schema. No markdown, no preamble.
-`.trim();
+async function runAnalysis(
+  contractBuffer:   Buffer,
+  contractMime:     string,
+  contractDoc:      ExtractedDocument,
+  corrBuffer:       Buffer,
+  corrMime:         string,
+  corrDoc:          ExtractedDocument,
+): Promise<any> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set on the server.");
 
-async function runAnalysis(contractPart: any, correspondencePart: any): Promise<any> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error("GEMINI_API_KEY is not set on the server.");
+  const client = new Anthropic({ apiKey });
 
-  const ai     = new GoogleGenAI({ apiKey });
-  const prompt = "Analyze the contract and correspondence. Return the decision summary JSON.";
+  const contractContent  = buildDocumentContent(contractBuffer, contractMime,  contractDoc);
+  const corrContent      = buildDocumentContent(corrBuffer,     corrMime,       corrDoc);
 
-  const callGemini = (model: string) =>
-    ai.models.generateContent({
-      model,
-      contents: { parts: [contractPart, correspondencePart, { text: prompt }] },
-      config: {
-        systemInstruction:  SYSTEM_INSTRUCTION,
-        responseMimeType:   "application/json",
-        responseSchema:     RESPONSE_SCHEMA,
-        temperature:        0.1,
-      },
-    });
+  const userContent: Anthropic.MessageParam["content"] = [
+    ...(contractContent as any[]),
+    ...(corrContent as any[]),
+    {
+      type: "text",
+      text: "Analyze these documents and call submit_analysis with your findings.",
+    },
+  ];
 
-  let response;
-  try {
-    response = await callGemini("gemini-2.0-flash");
-  } catch (err) {
-    console.warn("Flash model failed, falling back to gemini-1.5-pro:", err);
-    response = await callGemini("gemini-1.5-pro");
-  }
+  const response = await client.messages.create({
+    model:      "claude-sonnet-4-5",
+    max_tokens: 2048,
+    system:     SYSTEM_PROMPT,
+    tools:      [ANALYSIS_TOOL],
+    tool_choice: { type: "tool", name: "submit_analysis" },
+    messages:   [{ role: "user", content: userContent }],
+  });
 
-  const text = response.text?.trim();
-  if (!text) throw new Error("Empty response from Gemini.");
+  // Extract the tool use block
+  const toolUse = response.content.find((b) => b.type === "tool_use") as Anthropic.ToolUseBlock | undefined;
+  if (!toolUse) throw new Error("Claude did not call the submit_analysis tool.");
 
-  const first = text.indexOf("{");
-  const last  = text.lastIndexOf("}");
-  if (first === -1 || last === -1) throw new Error("No JSON object in Gemini response.");
+  const analysis = toolUse.input as any;
 
-  const analysis = JSON.parse(text.substring(first, last + 1));
-
+  // Validate required fields
   const required = ["executiveConclusion", "scopeStatus", "primaryResponsibility", "keyRisks"];
   for (const field of required) {
-    if (analysis[field] === undefined || analysis[field] === null) {
-      throw new Error(`Gemini response missing required field: ${field}`);
-    }
+    if (!analysis[field]) throw new Error(`Analysis response missing required field: ${field}`);
   }
 
   return analysis;
@@ -333,9 +346,9 @@ async function startServer() {
     ]),
     async (req, res) => {
       try {
-        const files          = req.files as Record<string, Express.Multer.File[]>;
-        const contractFile   = files?.contract?.[0];
-        const corrFile       = files?.correspondence?.[0];
+        const files        = req.files as Record<string, Express.Multer.File[]>;
+        const contractFile = files?.contract?.[0];
+        const corrFile     = files?.correspondence?.[0];
 
         if (!contractFile || !corrFile) {
           res.status(400).json({ error: "Both 'contract' and 'correspondence' files are required." });
@@ -357,21 +370,18 @@ async function startServer() {
 
         console.log(`\nIngesting: "${contractFile.originalname}" + "${corrFile.originalname}"`);
 
-        // Step 1: Ingest both documents (extract pages + chunks)
+        // Step 1: Ingest both documents
         const [contractDoc, correspondenceDoc] = await Promise.all([
-          ingestDocument(contractFile.buffer, contractFile.mimetype, contractFile.originalname, "contract",      contractFile.size),
+          ingestDocument(contractFile.buffer, contractFile.mimetype, contractFile.originalname, "contract",       contractFile.size),
           ingestDocument(corrFile.buffer,     corrFile.mimetype,     corrFile.originalname,     "correspondence", corrFile.size),
         ]);
 
-        // Step 2: Build Gemini parts from ingested docs
-        const [contractPart, correspondencePart] = await Promise.all([
-          buildGeminiPart(contractFile.buffer, contractFile.mimetype, contractDoc),
-          buildGeminiPart(corrFile.buffer,     corrFile.mimetype,     correspondenceDoc),
-        ]);
-
-        // Step 3: Run analysis
-        console.log("Running Gemini analysis...");
-        const analysis = await runAnalysis(contractPart, correspondencePart);
+        // Step 2: Run Claude analysis
+        console.log("Running Claude analysis...");
+        const analysis = await runAnalysis(
+          contractFile.buffer, contractFile.mimetype, contractDoc,
+          corrFile.buffer,     corrFile.mimetype,     correspondenceDoc,
+        );
 
         const projectData = {
           name:            String(req.body.projectName     || ""),
@@ -379,7 +389,7 @@ async function startServer() {
           changeRequestId: String(req.body.changeRequestId || ""),
         };
 
-        // Step 4: Persist to server backup store (without large page text to keep file small)
+        // Step 3: Persist metadata to server backup
         const contractDocMeta  = { ...contractDoc,      pages: undefined, chunks: undefined };
         const corrDocMeta      = { ...correspondenceDoc, pages: undefined, chunks: undefined };
         store = { analysis, projectData, contract: contractDocMeta, correspondence: corrDocMeta };
@@ -387,7 +397,6 @@ async function startServer() {
 
         console.log("Analysis complete.\n");
 
-        // Step 5: Return full ingested docs to client for IndexedDB storage
         res.json({
           success:        true,
           analysis,

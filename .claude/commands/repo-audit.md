@@ -13,7 +13,7 @@ Run a comprehensive audit of the Never Sign Blind codebase against the rebuild r
    - **Blockers**: Any bugs or dependencies that block progress
 
 4. For the current codebase, specifically check:
-   - `src/pages/IntakePage.tsx` — Gemini model names, API key handling, file validation
+   - `src/pages/IntakePage.tsx` — Claude model names, API key handling, file validation
    - `src/pages/DecisionSummaryPage.tsx` — data wiring, editable fields, navigation
    - `src/pages/ReportPage.tsx` — PDF export, data loading
    - `src/pages/SourcesPage.tsx` — is data real or hardcoded?

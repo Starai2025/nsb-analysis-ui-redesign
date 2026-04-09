@@ -62,7 +62,7 @@ For each citation that has a page number:
 ---
 
 ### 6.6 — Handle Missing Citations Gracefully
-If the citation extraction pass (Phase 4.6) produced no citations (e.g., Gemini didn't return structured citations), show:
+If the citation extraction pass (Phase 4.6) produced no citations (e.g., Claude didn't return structured citations), show:
 - The document text is still rendered
 - A message in the citations panel: "AI citations could not be extracted for this document. Run the analysis again or review the report for findings."
 

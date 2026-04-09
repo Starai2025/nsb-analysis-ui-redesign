@@ -1,7 +1,7 @@
 # Phase 4 — Analysis Engine Hardening
 
 ## Goal
-Make the Gemini analysis production-grade: reliable prompt engineering, proper model selection, clean retry logic, structured output validation, and meaningful error messages for every failure mode.
+Make the Claude analysis production-grade: reliable prompt engineering, proper model selection, clean retry logic, structured output validation, and meaningful error messages for every failure mode.
 
 ## Pre-condition: Phase 3 must be complete and gated.
 
@@ -14,7 +14,7 @@ Make the Gemini analysis production-grade: reliable prompt engineering, proper m
 ### 4.1 — Dedicated Analysis Service
 **File:** `src/lib/analysis.ts`
 
-Extract all Gemini logic out of IntakePage into a standalone service:
+Extract all Claude logic out of IntakePage into a standalone service:
 ```typescript
 export async function analyzeDocuments(
   contract: ExtractedDocument,
@@ -57,7 +57,7 @@ If validation fails, throw a descriptive error rather than rendering broken UI.
 **File:** `src/lib/analysis.ts`
 
 - Retry once on network error (exponential backoff)
-- Fall back from `gemini-2.0-flash` to `gemini-1.5-pro` on overloaded/error response
+- Fall back from `claude-2.0-flash` to `claude-1.5-pro` on overloaded/error response
 - If both models fail, surface a specific error: "Analysis service is temporarily unavailable. Please try again in a few minutes."
 - Add a timeout: if no response in 120 seconds, abort and show a timeout error
 
@@ -66,7 +66,7 @@ If validation fails, throw a descriptive error rather than rendering broken UI.
 ### 4.5 — Token Budget Management
 **File:** `src/lib/analysis.ts`
 
-Gemini has input token limits. For very large documents:
+Claude has input token limits. For very large documents:
 - Estimate token count before sending (rough: 4 chars per token)
 - If contract + correspondence > 900K chars, use only the first N chunks
 - Log a warning when document is truncated: "Document truncated to fit analysis window"
@@ -76,7 +76,7 @@ Gemini has input token limits. For very large documents:
 ### 4.6 — Citation Extraction Pass
 **File:** `src/lib/analysis.ts`
 
-After the primary analysis, run a second Gemini call specifically to extract citations:
+After the primary analysis, run a second Claude call specifically to extract citations:
 ```
 Given the analysis result and the document chunks, identify the specific clauses
 that support the finding for each key risk. Return an array of Citation objects.

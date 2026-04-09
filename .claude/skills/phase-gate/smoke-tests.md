@@ -22,10 +22,10 @@ These are the concrete scenarios to test during phase gates and smoke checks. Ea
 **Steps:** Upload a valid PDF contract + PDF correspondence. Click "Analyze Change."
 **Expected:**
 - Timer starts
-- Status messages update (at least "Consulting Gemini AI")
+- Status messages update (at least "Consulting Claude AI")
 - After 10–60 seconds, navigates to `/summary`
 - Summary page shows populated data (not empty, not "null")
-**Failure indicators:** Analysis errors immediately, Gemini model error, navigation fails, summary page is empty.
+**Failure indicators:** Analysis errors immediately, Claude model error, navigation fails, summary page is empty.
 
 ---
 

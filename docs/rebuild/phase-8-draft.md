@@ -34,7 +34,7 @@ export interface DraftResponse {
 }
 ```
 
-Build a Gemini prompt that:
+Build a Claude prompt that:
 - Uses `projectData.name`, `contractNumber`, `changeRequestId` in the letter
 - References the `strategicRecommendation` from the analysis
 - Uses the `keyRisks` to identify what the letter needs to address

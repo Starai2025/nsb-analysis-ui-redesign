@@ -9,11 +9,11 @@ Fix all critical bugs identified in the initial audit. Establish a clean, workin
 
 ## Deliverables
 
-### 1.1 — Fix Gemini Model Names (CRITICAL)
-**Problem:** `gemini-3-flash-preview` and `gemini-3.1-pro-preview` do not exist. Analysis always fails.
+### 1.1 — Fix Claude Model Names (CRITICAL)
+**Problem:** `claude-3-flash-preview` and `claude-3.1-pro-preview` do not exist. Analysis always fails.
 **Fix:** Change model names in `IntakePage.tsx`:
-- Primary: `gemini-2.0-flash`
-- Fallback: `gemini-1.5-pro`
+- Primary: `claude-2.0-flash`
+- Fallback: `claude-1.5-pro`
 
 **File:** `src/pages/IntakePage.tsx`
 
@@ -45,15 +45,15 @@ Fix all critical bugs identified in the initial audit. Establish a clean, workin
 ---
 
 ### 1.5 — Fix API Key Handling
-**Problem:** `process.env.GEMINI_API_KEY` doesn't work in Vite — needs `import.meta.env.VITE_GEMINI_API_KEY`.
-**Fix:** Replace all `process.env.GEMINI_API_KEY` references. Document in `.env.example`.
+**Problem:** `process.env.ANTHROPIC_API_KEY` doesn't work in Vite — needs `import.meta.env.VITE_ANTHROPIC_API_KEY`.
+**Fix:** Replace all `process.env.ANTHROPIC_API_KEY` references. Document in `.env.example`.
 
 **File:** `src/pages/IntakePage.tsx`, `.env.example`
 
 ---
 
 ### 1.6 — Fix noticeDeadline Date Parsing
-**Problem:** `new Date(analysis.noticeDeadline).toLocaleDateString()` will show "Invalid Date" if Gemini returns a malformed ISO string.
+**Problem:** `new Date(analysis.noticeDeadline).toLocaleDateString()` will show "Invalid Date" if Claude returns a malformed ISO string.
 **Fix:** Add a safe date parsing utility in `src/lib/utils.ts`. Use it in both DecisionSummaryPage and ReportPage.
 
 ---
