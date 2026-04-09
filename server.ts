@@ -420,6 +420,122 @@ async function extractCitations(
 }
 
 // ---------------------------------------------------------------------------
+// Report generation — structured prose sections from analysis data
+// ---------------------------------------------------------------------------
+
+const REPORT_TOOL: Anthropic.Tool = {
+  name:        "submit_report",
+  description: "Submit the fully written report sections derived from the contract change analysis.",
+  input_schema: {
+    type: "object",
+    properties: {
+      title: {
+        type:        "string",
+        description: "Report title, e.g. 'Change Order Analysis: [Project Name]'",
+      },
+      sections: {
+        type: "object",
+        properties: {
+          executiveSummary: {
+            type: "object",
+            properties: {
+              heading: { type: "string" },
+              content: { type: "string", description: "2–4 paragraph executive summary written in full professional prose. Max 600 chars." },
+            },
+            required: ["heading", "content"],
+          },
+          scopeAndResponsibility: {
+            type: "object",
+            properties: {
+              heading: { type: "string" },
+              content: { type: "string", description: "Analysis of whether the change is in scope and who bears responsibility under the contract. Max 500 chars." },
+            },
+            required: ["heading", "content"],
+          },
+          commercialAnalysis: {
+            type: "object",
+            properties: {
+              heading: { type: "string" },
+              content: { type: "string", description: "Analysis of the financial impact: claimable amounts, likelihood of recovery, and any risk to budget. Max 500 chars." },
+            },
+            required: ["heading", "content"],
+          },
+          scheduleImpact: {
+            type: "object",
+            properties: {
+              heading: { type: "string" },
+              content: { type: "string", description: "Assessment of schedule impact: estimated delays, critical path effects, and notice deadline obligations. Max 500 chars." },
+            },
+            required: ["heading", "content"],
+          },
+          recommendation: {
+            type: "object",
+            properties: {
+              heading: { type: "string" },
+              content: { type: "string", description: "Concrete recommended course of action for the contractor. Max 500 chars." },
+            },
+            required: ["heading", "content"],
+          },
+        },
+        required: [
+          "executiveSummary", "scopeAndResponsibility",
+          "commercialAnalysis", "scheduleImpact", "recommendation",
+        ],
+      },
+    },
+    required: ["title", "sections"],
+  },
+};
+
+async function generateReport(analysis: any, projectData: any): Promise<any> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set on the server.");
+  const client = new Anthropic({ apiKey });
+
+  const projectLabel = projectData?.name
+    ? `${projectData.name}${projectData.changeRequestId ? ` (${projectData.changeRequestId})` : ""}`
+    : "Unnamed Project";
+
+  const analysisJson = JSON.stringify({
+    executiveConclusion:     analysis.executiveConclusion,
+    scopeStatus:             analysis.scopeStatus,
+    primaryResponsibility:   analysis.primaryResponsibility,
+    secondaryResponsibility: analysis.secondaryResponsibility,
+    extraMoneyLikely:        analysis.extraMoneyLikely,
+    extraTimeLikely:         analysis.extraTimeLikely,
+    claimableAmount:         analysis.claimableAmount,
+    extraDays:               analysis.extraDays,
+    noticeDeadline:          analysis.noticeDeadline,
+    strategicRecommendation: analysis.strategicRecommendation,
+    keyRisks:                analysis.keyRisks,
+  }, null, 2);
+
+  const response = await withRetry(
+    () => client.messages.create({
+      model:      "claude-sonnet-4-5",
+      max_tokens: 2048,
+      system: `You are a senior construction contract manager writing a formal change-order analysis report.
+Write in professional, clear prose suitable for sending to legal counsel or a client.
+Do not repeat yourself. Do not use bullet points. Do not hallucinate.
+All content must be derived from the provided analysis data — no invented figures.
+Call submit_report with the completed sections.`,
+      tools:       [REPORT_TOOL],
+      tool_choice: { type: "tool", name: "submit_report" },
+      messages: [{
+        role:    "user",
+        content: `Write a formal analysis report for project: ${projectLabel}\n\nAnalysis data:\n${analysisJson}`,
+      }],
+    }),
+    "report generation"
+  );
+
+  const toolUse = response.content.find((b) => b.type === "tool_use") as Anthropic.ToolUseBlock | undefined;
+  if (!toolUse) throw new Error("Claude did not call the submit_report tool.");
+
+  return toolUse.input;
+}
+
+// ---------------------------------------------------------------------------
 // Express server
 // ---------------------------------------------------------------------------
 
@@ -528,6 +644,33 @@ async function startServer() {
       res.json({ success: true });
     } catch {
       res.status(500).json({ error: "Failed to save analysis." });
+    }
+  });
+
+  // ── Generate formal report from stored analysis ────────────────────────────
+  app.post("/api/generate-report", express.json({ limit: "1mb" }), async (req, res) => {
+    try {
+      if (!store.analysis) {
+        res.status(400).json({ error: "No analysis found. Run an analysis first." });
+        return;
+      }
+      console.log("Generating report...");
+      const raw = await generateReport(store.analysis, store.projectData ?? {});
+      const now = new Date().toISOString();
+      const report = {
+        id:        `report-${Date.now()}`,
+        threadId:  "current",
+        createdAt: now,
+        updatedAt: now,
+        title:     raw.title,
+        sections:  raw.sections,
+      };
+      console.log("Report generated.");
+      res.json({ success: true, report });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Report generation failed.";
+      console.error("Report error:", message);
+      res.status(500).json({ error: message });
     }
   });
 

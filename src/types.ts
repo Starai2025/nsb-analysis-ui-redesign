@@ -64,3 +64,31 @@ export interface IngestionStore {
   analysis?: any;
   projectData?: ProjectData;
 }
+
+// ---------------------------------------------------------------------------
+// Report model
+// ---------------------------------------------------------------------------
+
+export type ReportStatus = 'idle' | 'generating' | 'ready' | 'failed';
+
+export interface ReportSection {
+  heading: string;
+  content: string;
+}
+
+export interface ReportSections {
+  executiveSummary:       ReportSection;
+  scopeAndResponsibility: ReportSection;
+  commercialAnalysis:     ReportSection;
+  scheduleImpact:         ReportSection;
+  recommendation:         ReportSection;
+}
+
+export interface Report {
+  id:        string;
+  threadId:  string;
+  createdAt: string;
+  updatedAt: string;
+  title:     string;
+  sections:  ReportSections;
+}
