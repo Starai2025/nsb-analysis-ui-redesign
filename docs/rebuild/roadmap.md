@@ -35,13 +35,13 @@ Never Sign Blind is a construction contract intelligence tool. A project manager
 
 | # | Phase | Status | Key Deliverable |
 |---|-------|--------|-----------------|
-| 1 | Codebase Audit & Stabilization | 🟡 In Progress | Bug-free analysis flow with correct Claude models |
-| 2 | State Persistence | ⬜ Not Started | Analysis survives page refresh via localStorage |
-| 3 | Document Ingestion Engine | ⬜ Not Started | Chunked ingestion with page-level citations |
-| 4 | Analysis Engine Hardening | ⬜ Not Started | Reliable, typed, prompt-engineered analysis |
+| 1 | Codebase Audit & Stabilization | ✅ Complete | Server-side AI, security fixes, navigation |
+| 2 | State Persistence | ✅ Complete | IndexedDB primary store, analysis survives refresh |
+| 3 | Document Ingestion Engine | ✅ Complete | Server-side pdfjs + mammoth, pages + chunks in IndexedDB |
+| 4 | Analysis Engine Hardening | 🟡 In Progress | Retry logic, validation, citations, better prompt |
 | 5 | Report & Export | ⬜ Not Started | Production-quality PDF report |
 | 6 | Sources & Citations | ⬜ Not Started | Citations wired to real document chunks |
-| 7 | Ask the Contract (Chat) | ⬜ Not Started | Functional RAG-based contract Q&A |
+| 7 | Ask the Contract (Chat) | ⬜ Not Started | Functional RAG-based contract Q&A via server |
 | 8 | Draft Response Generation | ⬜ Not Started | AI-generated response letter from analysis |
 | 9 | Threading & History | ⬜ Not Started | Multiple analyses, history, project management |
 

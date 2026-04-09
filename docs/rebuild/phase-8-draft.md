@@ -1,7 +1,7 @@
 # Phase 8 — Draft Response Generation
 
 ## Goal
-DraftResponsePage generates a real AI-drafted response letter based on the actual analysis result and project data — not hardcoded "Project Alpha" placeholder text. The Claim Strategy tab is also dynamically generated from the analysis.
+DraftResponsePage generates a real AI-drafted response letter and claim strategy based on the actual analysis — not hardcoded "Project Alpha" placeholder content.
 
 ## Pre-condition: Phase 4 (analysis hardening) must be complete and gated.
 
@@ -9,100 +9,84 @@ DraftResponsePage generates a real AI-drafted response letter based on the actua
 
 ---
 
-## Background
-Currently `DraftResponsePage.tsx` contains 100% static hardcoded content. The letter references "Project Alpha", "CR-4052", "Ms. Elena Richardson", and "Arcadis" — none of which come from the actual analysis. Phase 8 replaces all of this with AI-generated, analysis-aware content.
+## Architecture Note
+All Claude calls live in `server.ts`. The frontend calls `POST /api/draft`, the server generates the letter using the stored analysis + project data, and returns the content. There is no `src/lib/draft.ts` that calls Claude client-side. Per CLAUDE.md: "Express backend is the source of orchestration."
 
 ---
 
 ## Deliverables
 
-### 8.1 — Draft Generation Service
-**File:** `src/lib/draft.ts`
+### 8.1 — Server: Draft Endpoint
+**File:** `server.ts`
 
-```typescript
-export async function generateDraftResponse(
-  analysis: AnalysisResult,
-  projectData: ProjectData
-): Promise<DraftResponse>
-
-export interface DraftResponse {
-  letter: string           // formal response letter text
-  claimStrategy: string    // claim strategy narrative
-  mitigationSteps: string[]
-  alternativePaths: string[]
+Add `POST /api/draft`:
+```
+Body: { threadId?: string }
+Returns: {
+  letter: string,
+  claimStrategy: string,
+  mitigationSteps: string[],
+  alternativePaths: string[],
   recommendedPath: string
 }
 ```
 
-Build a Claude prompt that:
-- Uses `projectData.name`, `contractNumber`, `changeRequestId` in the letter
-- References the `strategicRecommendation` from the analysis
-- Uses the `keyRisks` to identify what the letter needs to address
-- Specifies the `claimableAmount` and `extraDays` as the claim basis
-- References the `noticeDeadline` for urgency framing
-- Outputs structured JSON matching `DraftResponse`
+Build a Claude prompt using:
+- `projectData.name`, `contractNumber`, `changeRequestId` in the letter header
+- `analysis.strategicRecommendation` as the claim basis
+- `analysis.keyRisks` to identify what the letter addresses
+- `analysis.claimableAmount` and `analysis.extraDays` as the claim amounts
+- `analysis.noticeDeadline` for urgency framing
+
+Use tool use with a `submit_draft` tool for structured output — same pattern as analysis.
 
 ---
 
 ### 8.2 — Update DraftResponsePage
 **File:** `src/pages/DraftResponsePage.tsx`
 
-- On load, check `analysisStore` for existing analysis
-- If analysis exists and no draft has been generated, offer a "Generate Draft" button
-- On generate, call `drafting.generateDraftResponse()` with the analysis + project data
-- Store the generated draft in localStorage alongside the analysis
-- Populate the letter textarea with `draftResponse.letter`
-- Populate the claim strategy sections with the generated content
-- Show a loading state during generation
+- On load, check IndexedDB for an existing draft
+- If none exists, show "Generate Draft" button
+- On click, call `POST /api/draft`, show loading state
+- Populate the letter text area with `draftResponse.letter`
+- Populate Claim Strategy sections with generated content
+- Store draft in IndexedDB thread via `saveCurrentThread({ draft: draftResponse })`
 
 ---
 
-### 8.3 — Editable Letter
+### 8.3 — Remove All Hardcoded Content
 **File:** `src/pages/DraftResponsePage.tsx`
 
-The letter textarea should be fully editable after generation. Users should be able to:
-- Type directly in the letter
-- Apply formatting suggestions from the "Suggested Improvements" panel
-- Save the edited version back to localStorage
+Replace every hardcoded string:
+- "Project Alpha" → `projectData.name`
+- "CR-4052: Foundation Modification" → `projectData.changeRequestId`
+- "Ms. Elena Richardson" → remove or make generic
+- "Arcadis" → remove (user's company name not yet in scope)
+- Static claim strategy sections → generated content from server
 
 ---
 
-### 8.4 — Remove Hardcoded Sidebar Content
+### 8.4 — Functional Toolbar Buttons
 **File:** `src/pages/DraftResponsePage.tsx`
 
-Replace:
-- "Current Claim Status: Disputed / Unresolved" → from analysis `scopeStatus`
-- "Entitlement Support: Mixed" → derived from `extraMoneyLikely` + `extraTimeLikely`
-- "Project Alpha" badge → from `projectData.name`
-- "CR-4052" → from `projectData.changeRequestId`
+- **Save Draft** → saves edited letter text back to IndexedDB
+- **Copy** → copies letter to clipboard via `navigator.clipboard.writeText()`
+- **Export PDF** → uses jsPDF pattern from ReportPage
 
 ---
 
-### 8.5 — Wire Toolbar Buttons
-**File:** `src/pages/DraftResponsePage.tsx`
-
-Make functional:
-- **Save Draft** → saves current letter text to `analysisStore`
-- **Copy** → copies letter to clipboard
-- **Export PDF** → exports the letter as a PDF (reuse jsPDF pattern from ReportPage)
-
-The Bold/Italic/Underline/List toolbar buttons can remain visual-only (no contentEditable required) but should not throw errors.
-
----
-
-### 8.6 — "Regenerate" Option
-Add a "Regenerate Draft" button that calls the generation service again with a slightly higher temperature, producing a variation of the letter. Useful when the first draft doesn't match the desired tone.
+### 8.5 — Regenerate Option
+Add a "Regenerate" button that calls `/api/draft` again. Useful when the first draft tone doesn't fit.
 
 ---
 
 ## Success Criteria
 - [ ] Draft letter contains the actual project name and change request ID
-- [ ] Draft letter references the claimable amount from the analysis
-- [ ] Claim Strategy tab content is generated from the analysis (not static)
-- [ ] Letter is editable after generation
+- [ ] Letter references the real claimable amount from the analysis
+- [ ] No "Project Alpha", "Ms. Richardson", or "Arcadis" visible to the user
+- [ ] Claim Strategy tab content is generated (not static)
 - [ ] Save Draft and Copy buttons work
 - [ ] Export PDF produces a downloadable letter
-- [ ] Empty state when no analysis exists: "Complete an analysis to generate a draft"
 
 ## Gate
-Run `/phase-gate 8` before marking this phase complete.
+Run `/phase-gate 8` before marking complete.

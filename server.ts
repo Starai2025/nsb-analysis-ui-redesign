@@ -8,7 +8,10 @@ import mammoth from "mammoth";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 import Anthropic from "@anthropic-ai/sdk";
 import "dotenv/config";
-import { IngestionStore, ExtractedDocument, ExtractedChunk, ExtractedPage, DocumentType } from "./src/types.js";
+import {
+  IngestionStore, ExtractedDocument, ExtractedChunk,
+  ExtractedPage, DocumentType, Citation,
+} from "./src/types.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -16,7 +19,6 @@ const __dirname  = path.dirname(__filename);
 const STORE_PATH = path.join(__dirname, "data-store.json");
 const upload     = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 
-// Disable the worker for server-side use
 (pdfjsLib as any).GlobalWorkerOptions.workerSrc = "";
 
 // ---------------------------------------------------------------------------
@@ -25,8 +27,7 @@ const upload     = multer({ storage: multer.memoryStorage(), limits: { fileSize:
 
 async function loadStore(): Promise<IngestionStore> {
   try {
-    const data = await fs.readFile(STORE_PATH, "utf-8");
-    return JSON.parse(data);
+    return JSON.parse(await fs.readFile(STORE_PATH, "utf-8"));
   } catch {
     return {};
   }
@@ -43,39 +44,23 @@ loadStore().then((s) => (store = s));
 // Chunking helpers
 // ---------------------------------------------------------------------------
 
-const CHUNK_SIZE    = 2000;  // ~500 tokens
-const CHUNK_OVERLAP = 400;   // ~100 tokens
+const CHUNK_SIZE    = 2000;
+const CHUNK_OVERLAP = 400;
 const MAX_CHUNKS    = 200;
 
-function chunkText(
-  text: string,
-  sourceId: string,
-  pageNumber?: number
-): ExtractedChunk[] {
+function chunkText(text: string, sourceId: string, pageNumber?: number): ExtractedChunk[] {
   const chunks: ExtractedChunk[] = [];
-  let index = 0;
-  let pos   = 0;
-
+  let index = 0, pos = 0;
   while (pos < text.length && chunks.length < MAX_CHUNKS) {
     const end   = Math.min(pos + CHUNK_SIZE, text.length);
     const slice = text.slice(pos, end).trim();
-
     if (slice.length > 50) {
-      chunks.push({
-        id:         `${sourceId}-chunk-${index}`,
-        text:       slice,
-        pageNumber,
-        sourceId,
-        charStart:  pos,
-        charEnd:    end,
-      });
+      chunks.push({ id: `${sourceId}-chunk-${index}`, text: slice, pageNumber, sourceId, charStart: pos, charEnd: end });
       index++;
     }
-
     if (end === text.length) break;
     pos += CHUNK_SIZE - CHUNK_OVERLAP;
   }
-
   return chunks;
 }
 
@@ -83,146 +68,91 @@ function chunkText(
 // Document ingestion
 // ---------------------------------------------------------------------------
 
-async function ingestPDF(
-  buffer: Buffer,
-  docId: string
-): Promise<{ pages: ExtractedPage[]; chunks: ExtractedChunk[] }> {
-  const pages:  ExtractedPage[]  = [];
-  const chunks: ExtractedChunk[] = [];
-
+async function ingestPDF(buffer: Buffer, docId: string): Promise<{ pages: ExtractedPage[]; chunks: ExtractedChunk[] }> {
+  const pages: ExtractedPage[] = [], chunks: ExtractedChunk[] = [];
   try {
-    const uint8 = new Uint8Array(buffer);
-    const pdf   = await (pdfjsLib as any).getDocument({ data: uint8, disableFontFace: true, verbosity: 0 }).promise;
-
+    const pdf = await (pdfjsLib as any).getDocument({ data: new Uint8Array(buffer), disableFontFace: true, verbosity: 0 }).promise;
     for (let p = 1; p <= pdf.numPages; p++) {
       try {
-        const page    = await pdf.getPage(p);
-        const content = await page.getTextContent();
-        const text    = content.items
-          .map((item: any) => ("str" in item ? item.str : ""))
-          .join(" ")
-          .replace(/\s+/g, " ")
-          .trim();
-
+        const content = await (await pdf.getPage(p)).getTextContent();
+        const text = content.items.map((i: any) => ("str" in i ? i.str : "")).join(" ").replace(/\s+/g, " ").trim();
         if (text.length > 0) {
           pages.push({ pageNumber: p, text });
-          const pageChunks = chunkText(text, docId, p);
-          for (const c of pageChunks) {
-            if (chunks.length < MAX_CHUNKS) chunks.push(c);
-          }
+          for (const c of chunkText(text, docId, p)) { if (chunks.length < MAX_CHUNKS) chunks.push(c); }
         }
-      } catch (pageErr) {
-        console.warn(`Could not extract page ${p}:`, pageErr);
-      }
+      } catch (e) { console.warn(`Page ${p} extraction failed:`, e); }
     }
-  } catch (err) {
-    console.warn("PDF extraction failed (possibly encrypted/image-only):", err);
-  }
-
+  } catch (e) { console.warn("PDF extraction failed (possibly encrypted/image-only):", e); }
   return { pages, chunks };
 }
 
-async function ingestDOCX(
-  buffer: Buffer,
-  docId: string
-): Promise<{ pages: ExtractedPage[]; chunks: ExtractedChunk[] }> {
-  const pages:  ExtractedPage[]  = [];
-  const chunks: ExtractedChunk[] = [];
-
+async function ingestDOCX(buffer: Buffer, docId: string): Promise<{ pages: ExtractedPage[]; chunks: ExtractedChunk[] }> {
+  const pages: ExtractedPage[] = [], chunks: ExtractedChunk[] = [];
   try {
-    const result    = await mammoth.extractRawText({ buffer });
-    const fullText  = result.value;
+    const fullText = (await mammoth.extractRawText({ buffer })).value;
     const PAGE_SIZE = 3000;
-    let pageNumber  = 1;
-    let pos         = 0;
-
+    let pageNumber = 1, pos = 0;
     while (pos < fullText.length) {
-      const end  = Math.min(pos + PAGE_SIZE, fullText.length);
-      const text = fullText.slice(pos, end).trim();
-
+      const text = fullText.slice(pos, Math.min(pos + PAGE_SIZE, fullText.length)).trim();
       if (text.length > 0) {
         pages.push({ pageNumber, text });
-        const pageChunks = chunkText(text, docId, pageNumber);
-        for (const c of pageChunks) {
-          if (chunks.length < MAX_CHUNKS) chunks.push(c);
-        }
+        for (const c of chunkText(text, docId, pageNumber)) { if (chunks.length < MAX_CHUNKS) chunks.push(c); }
         pageNumber++;
       }
-
       pos += PAGE_SIZE;
     }
-  } catch (err) {
-    console.warn("DOCX extraction failed:", err);
-  }
-
+  } catch (e) { console.warn("DOCX extraction failed:", e); }
   return { pages, chunks };
 }
 
-async function ingestDocument(
-  buffer:       Buffer,
-  mimetype:     string,
-  originalname: string,
-  type:         DocumentType,
-  fileSize:     number
-): Promise<ExtractedDocument> {
-  const id  = `doc-${Date.now()}-${type}`;
-  const now = new Date().toISOString();
-
-  let pages:  ExtractedPage[]  = [];
-  let chunks: ExtractedChunk[] = [];
-
-  if (mimetype === "application/pdf") {
-    ({ pages, chunks } = await ingestPDF(buffer, id));
-  } else if (mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
-    ({ pages, chunks } = await ingestDOCX(buffer, id));
-  }
-
+async function ingestDocument(buffer: Buffer, mimetype: string, originalname: string, type: DocumentType, fileSize: number): Promise<ExtractedDocument> {
+  const id = `doc-${Date.now()}-${type}`;
+  const { pages, chunks } = mimetype === "application/pdf"
+    ? await ingestPDF(buffer, id)
+    : await ingestDOCX(buffer, id);
   console.log(`  Ingested "${originalname}": ${pages.length} pages, ${chunks.length} chunks`);
-
-  return {
-    id,
-    name: originalname,
-    type,
-    pages,
-    chunks,
-    metadata: { fileSize, mimeType: mimetype, uploadedAt: now },
-  };
+  return { id, name: originalname, type, pages, chunks, metadata: { fileSize, mimeType: mimetype, uploadedAt: new Date().toISOString() } };
 }
 
 // ---------------------------------------------------------------------------
-// Build Claude message content from ingested document
+// Token budget check
 // ---------------------------------------------------------------------------
 
-function buildDocumentContent(
-  buffer:   Buffer,
-  mimetype: string,
-  doc:      ExtractedDocument
-): Anthropic.MessageParam["content"] {
+const MAX_ESTIMATED_TOKENS = 150_000;
+
+function estimateTokens(buffer: Buffer, mimetype: string, doc: ExtractedDocument): number {
+  if (mimetype === "application/pdf") return Math.ceil(buffer.length * 0.75 / 4);
+  const text = doc.pages?.map(p => p.text).join(" ") ?? "";
+  return Math.ceil(text.length / 4);
+}
+
+function truncateDocForOversize(doc: ExtractedDocument, maxPages: number): ExtractedDocument {
+  if (!doc.pages || doc.pages.length <= maxPages) return doc;
+  console.warn(`  Truncating "${doc.name}" from ${doc.pages.length} to ${maxPages} pages for token budget`);
+  const pages = doc.pages.slice(0, maxPages);
+  const pageNums = new Set(pages.map(p => p.pageNumber));
+  return { ...doc, pages, chunks: doc.chunks?.filter(c => c.pageNumber != null && pageNums.has(c.pageNumber)) };
+}
+
+// ---------------------------------------------------------------------------
+// Build Claude message content
+// ---------------------------------------------------------------------------
+
+function buildDocumentContent(buffer: Buffer, mimetype: string, doc: ExtractedDocument): Anthropic.MessageParam["content"] {
   if (mimetype === "application/pdf") {
-    // Send as base64 PDF document block — Claude reads it natively
-    return [
-      {
-        type:   "document",
-        source: {
-          type:       "base64",
-          media_type: "application/pdf",
-          data:       buffer.toString("base64"),
-        },
-        title:       doc.name,
-        cache_control: { type: "ephemeral" },
-      } as any,
-    ];
+    return [{
+      type: "document",
+      source: { type: "base64", media_type: "application/pdf", data: buffer.toString("base64") },
+      title: doc.name,
+      cache_control: { type: "ephemeral" },
+    } as any];
   }
-
-  // DOCX: send structured page text
-  const text = doc.pages?.map((p) => `[Page ${p.pageNumber}]\n${p.text}`).join("\n\n")
-    ?? `Document: ${doc.name}`;
-
+  const text = doc.pages?.map(p => `[Page ${p.pageNumber}]\n${p.text}`).join("\n\n") ?? `Document: ${doc.name}`;
   return [{ type: "text", text: `Document: ${doc.name}\n\n${text}` }];
 }
 
 // ---------------------------------------------------------------------------
-// Claude analysis — structured output via tool use
+// Analysis — tool definition + improved prompt
 // ---------------------------------------------------------------------------
 
 const ANALYSIS_TOOL: Anthropic.Tool = {
@@ -231,23 +161,23 @@ const ANALYSIS_TOOL: Anthropic.Tool = {
   input_schema: {
     type: "object",
     properties: {
-      executiveConclusion:     { type: "string", description: "2-3 sentence summary of the overall impact. Max 300 chars." },
+      executiveConclusion:     { type: "string", description: "2-3 sentence summary of overall impact. Max 300 chars." },
       scopeStatus:             { type: "string", enum: ["In Scope", "Out of Scope"] },
-      primaryResponsibility:   { type: "string", description: "Who bears primary responsibility. Max 100 chars." },
-      secondaryResponsibility: { type: "string", description: "Secondary responsible party. Max 100 chars." },
-      extraMoneyLikely:        { type: "boolean" },
-      extraTimeLikely:         { type: "boolean" },
-      claimableAmount:         { type: "string", description: "e.g. '$50,000' or 'Not specified'" },
-      extraDays:               { type: "string", description: "e.g. '14 days' or 'Not specified'" },
-      noticeDeadline:          { type: "string", description: "ISO 8601 date (YYYY-MM-DD) or 'Not specified'" },
-      strategicRecommendation: { type: "string", description: "Recommended course of action. Max 500 chars." },
+      primaryResponsibility:   { type: "string", description: "Who bears primary responsibility for this change. Max 100 chars." },
+      secondaryResponsibility: { type: "string", description: "Secondary responsible party, if any. Max 100 chars." },
+      extraMoneyLikely:        { type: "boolean", description: "Is a monetary claim likely?" },
+      extraTimeLikely:         { type: "boolean", description: "Is a time extension claim likely?" },
+      claimableAmount:         { type: "string", description: "Estimated claimable amount, e.g. '$50,000'. Use 'Not specified' if unclear." },
+      extraDays:               { type: "string", description: "Estimated additional days, e.g. '14 days'. Use 'Not specified' if unclear." },
+      noticeDeadline:          { type: "string", description: "ISO 8601 date the notice must be filed by (YYYY-MM-DD), or 'Not specified'." },
+      strategicRecommendation: { type: "string", description: "Recommended course of action for the contractor. Max 500 chars." },
       keyRisks: {
         type: "array",
         items: {
           type: "object",
           properties: {
-            title:       { type: "string", description: "Max 50 chars" },
-            description: { type: "string", description: "Max 200 chars" },
+            title:       { type: "string", description: "Risk title. Max 50 chars." },
+            description: { type: "string", description: "Risk description with page reference if available. Max 200 chars." },
           },
           required: ["title", "description"],
         },
@@ -264,65 +194,229 @@ const ANALYSIS_TOOL: Anthropic.Tool = {
   },
 };
 
-const SYSTEM_PROMPT = `You are a senior construction contract manager with deep expertise in AIA A201, DBIA 540, and standard heavy civil contract forms.
+const SYSTEM_PROMPT = `You are a senior construction contract manager with deep expertise in AIA A201, DBIA 540, ConsensusDocs, and standard heavy civil contract forms.
 
 Your task: analyze the provided contract and correspondence to determine the legal and financial impact of a proposed change.
 
-Rules:
-1. Be concise — no repetition, no padding.
-2. Focus on legal and financial implications.
-3. If a value cannot be determined from the documents, use "Not specified" — never hallucinate.
-4. noticeDeadline must be a valid ISO 8601 date (YYYY-MM-DD) or "Not specified".
-5. scopeStatus must be exactly "In Scope" or "Out of Scope".
-6. Always call the submit_analysis tool with your findings — do not respond with plain text.`;
+Analysis guidelines:
+1. Identify the relevant contract clauses governing scope, changes, notice, and payment — cite page numbers when available (e.g., "per Section 7.2, Page 14").
+2. Determine whether the proposed work is within or outside the original contract scope.
+3. Identify the responsible party for the cost and time impact under the contract terms.
+4. Detect any notice requirements: find the specific clause that requires written notice of claims, and extract the deadline date if stated or calculable.
+5. Flag adversarial or non-standard clauses that shift unusual risk to the contractor.
+6. If a value cannot be determined from the documents, use "Not specified" — never hallucinate figures or dates.
+7. scopeStatus must be exactly "In Scope" or "Out of Scope".
+8. noticeDeadline must be YYYY-MM-DD format or "Not specified".
+9. Always call the submit_analysis tool — do not respond with plain text.`;
+
+// ---------------------------------------------------------------------------
+// Validation
+// ---------------------------------------------------------------------------
+
+function validateAnalysis(analysis: any): void {
+  if (!analysis.executiveConclusion?.trim())
+    throw new Error("Analysis missing executiveConclusion.");
+  if (!["In Scope", "Out of Scope"].includes(analysis.scopeStatus))
+    throw new Error(`Invalid scopeStatus: "${analysis.scopeStatus}". Must be "In Scope" or "Out of Scope".`);
+  if (!analysis.primaryResponsibility?.trim())
+    throw new Error("Analysis missing primaryResponsibility.");
+  if (!Array.isArray(analysis.keyRisks) || analysis.keyRisks.length === 0)
+    throw new Error("Analysis must include at least one key risk.");
+  for (const risk of analysis.keyRisks) {
+    if (!risk.title?.trim() || !risk.description?.trim())
+      throw new Error("Each key risk must have a non-empty title and description.");
+  }
+  if (!analysis.claimableAmount?.trim())
+    throw new Error("Analysis missing claimableAmount.");
+  if (!analysis.extraDays?.trim())
+    throw new Error("Analysis missing extraDays.");
+  // noticeDeadline: if not "Not specified", must parse as a valid date
+  if (analysis.noticeDeadline && analysis.noticeDeadline !== "Not specified") {
+    const d = new Date(analysis.noticeDeadline);
+    if (isNaN(d.getTime())) {
+      console.warn(`noticeDeadline "${analysis.noticeDeadline}" is not a valid ISO date — resetting to "Not specified"`);
+      analysis.noticeDeadline = "Not specified";
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Retry wrapper
+// ---------------------------------------------------------------------------
+
+const RETRY_DELAYS = [2000, 6000];
+
+async function withRetry<T>(fn: () => Promise<T>, label: string): Promise<T> {
+  for (let attempt = 0; attempt <= RETRY_DELAYS.length; attempt++) {
+    try {
+      return await fn();
+    } catch (err: any) {
+      const isRetryable = err?.status === 529 || err?.status === 503 || err?.code === "ECONNRESET";
+      if (!isRetryable || attempt === RETRY_DELAYS.length) throw err;
+      const delay = RETRY_DELAYS[attempt];
+      console.warn(`${label} attempt ${attempt + 1} failed (${err?.status ?? err?.code}), retrying in ${delay}ms...`);
+      await new Promise(r => setTimeout(r, delay));
+    }
+  }
+  throw new Error(`${label} failed after all retries.`);
+}
+
+// ---------------------------------------------------------------------------
+// Run analysis
+// ---------------------------------------------------------------------------
 
 async function runAnalysis(
-  contractBuffer:   Buffer,
-  contractMime:     string,
-  contractDoc:      ExtractedDocument,
-  corrBuffer:       Buffer,
-  corrMime:         string,
-  corrDoc:          ExtractedDocument,
+  contractBuffer: Buffer, contractMime: string, contractDoc: ExtractedDocument,
+  corrBuffer:     Buffer, corrMime:     string, corrDoc:      ExtractedDocument,
 ): Promise<any> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set on the server.");
-
   const client = new Anthropic({ apiKey });
 
-  const contractContent  = buildDocumentContent(contractBuffer, contractMime,  contractDoc);
-  const corrContent      = buildDocumentContent(corrBuffer,     corrMime,       corrDoc);
+  // Token budget check — truncate DOCX pages if needed, keep PDF as-is
+  const contractTokens = estimateTokens(contractBuffer, contractMime, contractDoc);
+  const corrTokens     = estimateTokens(corrBuffer,     corrMime,     corrDoc);
+  const totalTokens    = contractTokens + corrTokens;
+
+  let effectiveContractDoc = contractDoc;
+  let effectiveCorrDoc     = corrDoc;
+
+  if (totalTokens > MAX_ESTIMATED_TOKENS) {
+    console.warn(`  Estimated ${totalTokens} tokens — applying token budget (max ${MAX_ESTIMATED_TOKENS})`);
+    const budget   = MAX_ESTIMATED_TOKENS;
+    const cRatio   = contractTokens / totalTokens;
+    const maxContr = Math.floor((budget * cRatio) / (CHUNK_SIZE / 4));
+    const maxCorr  = Math.floor((budget * (1 - cRatio)) / (CHUNK_SIZE / 4));
+    if (contractMime !== "application/pdf") effectiveContractDoc = truncateDocForOversize(contractDoc, Math.max(maxContr, 10));
+    if (corrMime     !== "application/pdf") effectiveCorrDoc     = truncateDocForOversize(corrDoc,     Math.max(maxCorr,  5));
+  }
+
+  const contractContent = buildDocumentContent(contractBuffer, contractMime, effectiveContractDoc);
+  const corrContent     = buildDocumentContent(corrBuffer,     corrMime,     effectiveCorrDoc);
 
   const userContent: Anthropic.MessageParam["content"] = [
     ...(contractContent as any[]),
     ...(corrContent as any[]),
-    {
-      type: "text",
-      text: "Analyze these documents and call submit_analysis with your findings.",
-    },
+    { type: "text", text: "Analyze these documents and call submit_analysis with your findings." },
   ];
 
-  const response = await client.messages.create({
-    model:      "claude-sonnet-4-5",
-    max_tokens: 2048,
-    system:     SYSTEM_PROMPT,
-    tools:      [ANALYSIS_TOOL],
-    tool_choice: { type: "tool", name: "submit_analysis" },
-    messages:   [{ role: "user", content: userContent }],
-  });
+  const controller = new AbortController();
+  const timeout    = setTimeout(() => controller.abort(), 120_000);
 
-  // Extract the tool use block
-  const toolUse = response.content.find((b) => b.type === "tool_use") as Anthropic.ToolUseBlock | undefined;
-  if (!toolUse) throw new Error("Claude did not call the submit_analysis tool.");
+  try {
+    const response = await withRetry(
+      () => client.messages.create({
+        model:      "claude-sonnet-4-5",
+        max_tokens: 2048,
+        system:     SYSTEM_PROMPT,
+        tools:      [ANALYSIS_TOOL],
+        tool_choice: { type: "tool", name: "submit_analysis" },
+        messages:   [{ role: "user", content: userContent }],
+      }),
+      "analysis"
+    );
 
-  const analysis = toolUse.input as any;
+    const toolUse = response.content.find((b) => b.type === "tool_use") as Anthropic.ToolUseBlock | undefined;
+    if (!toolUse) throw new Error("Claude did not call the submit_analysis tool.");
 
-  // Validate required fields
-  const required = ["executiveConclusion", "scopeStatus", "primaryResponsibility", "keyRisks"];
-  for (const field of required) {
-    if (!analysis[field]) throw new Error(`Analysis response missing required field: ${field}`);
+    const analysis = toolUse.input as any;
+    validateAnalysis(analysis);
+    return analysis;
+  } catch (err: any) {
+    if (err.name === "AbortError") throw new Error("Analysis timed out after 120 seconds. Please try again.");
+    throw err;
+  } finally {
+    clearTimeout(timeout);
   }
+}
 
-  return analysis;
+// ---------------------------------------------------------------------------
+// Citation extraction (second Claude pass)
+// ---------------------------------------------------------------------------
+
+const CITATION_TOOL: Anthropic.Tool = {
+  name:        "submit_citations",
+  description: "Submit extracted citations from the contract that support the analysis findings.",
+  input_schema: {
+    type: "object",
+    properties: {
+      citations: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            id:          { type: "string" },
+            title:       { type: "string", description: "Short label for this clause/finding. Max 60 chars." },
+            source:      { type: "string", description: "Location, e.g. 'Section 7.2, Page 14'" },
+            text:        { type: "string", description: "The exact or near-exact clause text. Max 300 chars." },
+            explanation: { type: "string", description: "Why this clause is relevant to the analysis. Max 200 chars." },
+            confidence:  { type: "string", enum: ["High", "Medium", "Low"] },
+          },
+          required: ["id", "title", "source", "text", "explanation", "confidence"],
+        },
+        minItems: 0,
+        maxItems: 8,
+      },
+    },
+    required: ["citations"],
+  },
+};
+
+async function extractCitations(
+  analysis:    any,
+  contractDoc: ExtractedDocument,
+): Promise<Citation[]> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return [];
+
+  try {
+    const client = new Anthropic({ apiKey });
+
+    // Use top 20 chunks from the contract (by page order)
+    const chunks = (contractDoc.chunks ?? []).slice(0, 20);
+    const chunksText = chunks
+      .map(c => `[Page ${c.pageNumber ?? "?"}]\n${c.text}`)
+      .join("\n\n---\n\n");
+
+    const analysisJson = JSON.stringify({
+      scopeStatus:       analysis.scopeStatus,
+      primaryResp:       analysis.primaryResponsibility,
+      keyRisks:          analysis.keyRisks,
+      noticeDeadline:    analysis.noticeDeadline,
+      recommendation:    analysis.strategicRecommendation,
+    }, null, 2);
+
+    const response = await withRetry(
+      () => client.messages.create({
+        model:      "claude-sonnet-4-5",
+        max_tokens: 1024,
+        system:     "You are a construction contract analyst. Identify specific contract clauses that support the provided analysis findings. Call submit_citations with your results.",
+        tools:      [CITATION_TOOL],
+        tool_choice: { type: "tool", name: "submit_citations" },
+        messages: [{
+          role:    "user",
+          content: `Analysis findings:\n${analysisJson}\n\nContract chunks:\n${chunksText}\n\nIdentify the specific clauses that support these findings and call submit_citations.`,
+        }],
+      }),
+      "citation extraction"
+    );
+
+    const toolUse = response.content.find(b => b.type === "tool_use") as Anthropic.ToolUseBlock | undefined;
+    if (!toolUse) return [];
+
+    const raw = (toolUse.input as any).citations ?? [];
+    return raw.map((c: any, i: number) => ({
+      id:          c.id ?? `cite-${i}`,
+      title:       c.title ?? "",
+      source:      c.source ?? "",
+      text:        c.text ?? "",
+      explanation: c.explanation ?? "",
+      confidence:  c.confidence ?? "Medium",
+    })) as Citation[];
+  } catch (err) {
+    console.warn("Citation extraction failed (non-blocking):", err);
+    return [];
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -337,7 +431,7 @@ async function startServer() {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
   });
 
-  // ── Core: ingest + analyze ─────────────────────────────────────────────────
+  // ── Core: ingest + analyze + cite ─────────────────────────────────────────
   app.post(
     "/api/analyze",
     upload.fields([
@@ -370,18 +464,23 @@ async function startServer() {
 
         console.log(`\nIngesting: "${contractFile.originalname}" + "${corrFile.originalname}"`);
 
-        // Step 1: Ingest both documents
+        // Step 1: Ingest
         const [contractDoc, correspondenceDoc] = await Promise.all([
           ingestDocument(contractFile.buffer, contractFile.mimetype, contractFile.originalname, "contract",       contractFile.size),
           ingestDocument(corrFile.buffer,     corrFile.mimetype,     corrFile.originalname,     "correspondence", corrFile.size),
         ]);
 
-        // Step 2: Run Claude analysis
+        // Step 2: Analyze
         console.log("Running Claude analysis...");
         const analysis = await runAnalysis(
           contractFile.buffer, contractFile.mimetype, contractDoc,
           corrFile.buffer,     corrFile.mimetype,     correspondenceDoc,
         );
+
+        // Step 3: Extract citations (non-blocking)
+        console.log("Extracting citations...");
+        const citations = await extractCitations(analysis, contractDoc);
+        console.log(`  ${citations.length} citation(s) extracted`);
 
         const projectData = {
           name:            String(req.body.projectName     || ""),
@@ -389,25 +488,32 @@ async function startServer() {
           changeRequestId: String(req.body.changeRequestId || ""),
         };
 
-        // Step 3: Persist metadata to server backup
-        const contractDocMeta  = { ...contractDoc,      pages: undefined, chunks: undefined };
-        const corrDocMeta      = { ...correspondenceDoc, pages: undefined, chunks: undefined };
+        // Step 4: Persist backup (metadata only)
+        const contractDocMeta = { ...contractDoc,       pages: undefined, chunks: undefined };
+        const corrDocMeta     = { ...correspondenceDoc, pages: undefined, chunks: undefined };
         store = { analysis, projectData, contract: contractDocMeta, correspondence: corrDocMeta };
         await saveStore(store);
 
         console.log("Analysis complete.\n");
 
         res.json({
-          success:        true,
+          success: true,
           analysis,
           projectData,
+          citations,
           contract:       contractDoc,
           correspondence: correspondenceDoc,
         });
-      } catch (err) {
+      } catch (err: any) {
         const message = err instanceof Error ? err.message : "Analysis failed.";
         console.error("Analysis error:", message);
-        res.status(500).json({ error: message });
+        // Map specific error types to helpful user messages
+        if (message.includes("timed out"))
+          res.status(504).json({ error: message });
+        else if (message.includes("ANTHROPIC_API_KEY"))
+          res.status(500).json({ error: "Server configuration error: API key not set." });
+        else
+          res.status(500).json({ error: message });
       }
     }
   );
@@ -432,10 +538,7 @@ async function startServer() {
 
   // ── Vite / static ──────────────────────────────────────────────────────────
   if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
+    const vite = await createViteServer({ server: { middlewareMode: true }, appType: "spa" });
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), "dist");

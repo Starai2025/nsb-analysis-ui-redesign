@@ -1,93 +1,84 @@
 # Phase 7 — Ask the Contract (Chat)
 
 ## Goal
-The AskTheContract component becomes a functional RAG-based Q&A system. Users can ask natural language questions about their uploaded contract and get specific, citation-backed answers in real time.
+The AskTheContract component becomes a functional RAG-based Q&A system. Users ask natural language questions about their uploaded contract and get specific, citation-backed answers from Claude in real time.
 
-## Pre-condition: Phase 3 (ingestion/chunking) must be complete and gated.
+## Pre-condition: Phase 3 (ingestion/chunking) must be complete and gated. ✅
 
 ## Status: ⬜ Not Started
 
 ---
 
-## Background
-Currently `AskTheContract.tsx` renders a chat UI shell with no backend. It doesn't send messages or receive responses. Phase 7 makes it functional.
-
-The approach is **client-side RAG**:
-1. User asks a question
-2. Find the most relevant chunks from the stored contract/correspondence
-3. Pass those chunks + the question to Claude
-4. Stream the response back
+## Architecture Note
+All Claude calls live in `server.ts`. The frontend sends a question to `POST /api/chat`, the server retrieves relevant chunks from the stored thread, calls Claude, and returns the answer. There is no `src/lib/rag.ts` that calls Claude client-side. Per CLAUDE.md: "Express backend is the source of orchestration."
 
 ---
 
 ## Deliverables
 
-### 7.1 — Create RAG Service
-**File:** `src/lib/rag.ts`
+### 7.1 — Server: Chat Endpoint
+**File:** `server.ts`
 
-```typescript
-export async function askTheContract(
-  question: string,
-  contract: ExtractedDocument,
-  correspondence?: ExtractedDocument
-): Promise<string>
+Add `POST /api/chat`:
+```
+Body: { question: string, threadId?: string }
+Returns: { answer: string, sourceChunks: ExtractedChunk[] }
 ```
 
-- Simple vector-free relevance scoring: score each chunk by keyword overlap with the question
-- Select top 5 most relevant chunks
-- Build a prompt: "Given the following contract clauses, answer the question: [question]"
-- Call `claude-2.0-flash` with the chunks + question
-- Return the response text
+- Load the current thread from `data-store.json` (Phase 9 adds real thread IDs)
+- Score all chunks by keyword overlap with the question
+- Select top 5 most relevant chunks from both contract and correspondence
+- Call `claude-sonnet-4-5` with the chunks + question
+- Return the answer and the source chunks used
 
 ---
 
 ### 7.2 — Wire AskTheContract Component
 **File:** `src/components/AskTheContract.tsx`
 
-- On submit, call `askTheContract()` with the question and loaded documents from `analysisStore`
-- Show a typing indicator while the response streams
-- Render the response in the chat panel with the relevant chunk sources cited
-- Handle the empty state: "Upload a contract first to enable Q&A"
-- Handle errors gracefully
+Replace the `setTimeout` fake response with a real `fetch('/api/chat', { body: { question } })` call:
+- Show a typing indicator while the response is loading
+- Render the answer in the chat panel
+- Show source chunk references (page number + snippet) below each answer
+- Handle errors gracefully with a user-facing message
+- Empty state: "Upload and analyze a contract to enable Q&A"
 
 ---
 
 ### 7.3 — Chat History in Session
 **File:** `src/components/AskTheContract.tsx`
 
-- Maintain an array of `{ role: 'user' | 'assistant', text: string }` messages in component state
-- Render the full conversation history in the chat panel
-- "Clear chat" button resets history (does not clear the analysis)
+- Maintain `{ role: 'user' | 'assistant', text: string }` message array in component state
+- Include last 6 messages in the server request for conversational context
+- "Clear chat" button resets history only (does not clear the analysis)
 
 ---
 
 ### 7.4 — Suggested Questions
 **File:** `src/components/AskTheContract.tsx`
 
-On first open (empty history), show 3–4 suggested questions based on the analysis:
+On first open (empty history), show 3 suggested questions derived from the analysis:
 - "What are the payment terms?"
 - "When is the notice deadline?"
-- "Who is responsible for [risk.title]?"
-- "What does the indemnification clause say?"
+- One question per key risk title from the analysis
 
-Clicking a suggestion populates the input.
+Clicking a suggestion populates the input field.
 
 ---
 
-### 7.5 — Sources Panel Integration
+### 7.5 — Wire Sources Page Input
 **File:** `src/pages/SourcesPage.tsx`
 
-The "Ask a question about these clauses..." input at the bottom of SourcesPage should use the same `askTheContract()` service. Wire it up.
+The "Ask a question about these clauses..." input at the bottom of SourcesPage should call the same `/api/chat` endpoint.
 
 ---
 
 ## Success Criteria
-- [ ] Asking "What are the payment terms?" returns a relevant answer drawn from the contract text
-- [ ] Response includes a page or chunk reference (e.g., "per Section 3, Page 1")
-- [ ] Empty state shows when no contract is uploaded
-- [ ] Chat history persists within the session (not across page refreshes)
-- [ ] Error message appears if Claude call fails
-- [ ] Suggested questions appear on first open
+- [ ] Asking "What are the payment terms?" returns a relevant answer from the contract text
+- [ ] Response includes a page reference (e.g., "per Page 3")
+- [ ] Empty state shows when no analysis exists
+- [ ] Fake `setTimeout` response completely removed from AskTheContract.tsx
+- [ ] Chat history persists within the session
 
 ## Gate
-Run `/phase-gate 7` before marking this phase complete.
+Run `/phase-gate 7` before marking complete.

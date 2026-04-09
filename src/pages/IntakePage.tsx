@@ -83,12 +83,13 @@ export default function IntakePage() {
 
       setAnalysisStatus('Saving results to local storage...');
 
-      // Persist full ingested documents + analysis to IndexedDB
+      // Persist full ingested documents + analysis + citations to IndexedDB
       await saveCurrentThread({
         analysis:       data.analysis,
         projectData:    data.projectData,
         contract:       data.contract,
         correspondence: data.correspondence,
+        citations:      data.citations ?? [],
       });
 
       stopTimer();
