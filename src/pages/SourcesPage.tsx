@@ -1,252 +1,405 @@
-import React, { useRef } from 'react';
-import { Search, Download, ZoomIn, ZoomOut, FileText, ShieldCheck, AlertTriangle, Info, ArrowRight, Gavel, Scale, List, Bookmark } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  Search, Download, ZoomIn, ZoomOut, FileText,
+  AlertTriangle, Info, ArrowRight, List, Bookmark,
+  Scale, ShieldCheck, Loader2
+} from 'lucide-react';
+import { loadCurrentThread } from '../lib/db';
+import { Citation, ExtractedPage } from '../types';
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Extract the first page number mentioned in a citation source string.
+ *  e.g. "Section 7.2, Page 14" → 14,  "Page 3" → 3,  "p. 5" → 5
+ */
+function parsePageFromSource(source: string): number | null {
+  const m = source.match(/(?:page|pg|p\.?)\s*(\d+)/i);
+  return m ? parseInt(m[1], 10) : null;
+}
+
+/** Pull a heading from the start of a page's text for the outline.
+ *  Looks for numbered headings (1., 1.1, Article 1) or ALL-CAPS lines.
+ */
+function extractHeading(text: string): string | null {
+  const lines = text.split(/[\n\r]+/).map(l => l.trim()).filter(Boolean);
+  for (const line of lines.slice(0, 6)) {
+    if (/^(\d+\.|\d+\.\d+|article\s+\d+|section\s+\d+)/i.test(line) && line.length < 120) return line;
+    if (/^[A-Z][A-Z\s]{4,50}$/.test(line)) return line;
+  }
+  return null;
+}
+
+/** Confidence badge color */
+function confidenceStyle(c: Citation['confidence']) {
+  if (c === 'High')   return { badge: 'bg-emerald-100 text-emerald-700 border-emerald-200', border: 'border-emerald-300', bg: 'bg-emerald-50/40' };
+  if (c === 'Medium') return { badge: 'bg-amber-100 text-amber-700 border-amber-200',     border: 'border-amber-300',   bg: 'bg-amber-50/40'   };
+  return               { badge: 'bg-rose-100 text-rose-700 border-rose-200',       border: 'border-rose-300',    bg: 'bg-rose-50/40'    };
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
 
 export default function SourcesPage() {
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
+  const scrollRef  = useRef<HTMLDivElement>(null);
+  const [pages,     setPages]     = useState<ExtractedPage[]>([]);
+  const [citations, setCitations] = useState<Citation[]>([]);
+  const [docName,   setDocName]   = useState('');
+  const [loading,   setLoading]   = useState(true);
+  const [search,    setSearch]    = useState('');
+  const [zoom,      setZoom]      = useState(100);
 
-  const citations = [
-    { 
-      id: '01', 
-      title: 'Broad Indemnification Loophole', 
-      ref: 'Page 1 • Paragraph 4 • Section 2', 
-      text: '"The Contractor agrees to indemnify, defend, and hold harmless BuildCorp... regardless of whether such claims are caused by the negligence of BuildCorp."', 
-      reasoning: 'This is a "Broad Form" indemnity clause. In many jurisdictions (like Texas or California), anti-indemnity statutes for construction may limit the enforceability of indemnifying a party for its own sole negligence. However, as written, it shifts 100% of the risk to the contractor, even for owner-caused accidents.',
-      impact: 'Extreme liability exposure. Standard industry practice (AIA A201) requires "Limited Form" or "Intermediate Form" indemnification where each party is responsible for their own proportional negligence.', 
-      type: 'error' 
-    },
-    { 
-      id: '02', 
-      title: 'Aggressive Termination for Convenience', 
-      ref: 'Page 1 • Paragraph 7 • Section 4', 
-      text: '"BuildCorp may terminate this Agreement at any time, for any reason or no reason, upon five (5) days\' written notice to Contractor."', 
-      reasoning: 'A 5-day notice period for convenience is highly irregular in heavy civil or commercial construction. It does not allow sufficient time for demobilization of heavy equipment or orderly transition of subcontractors.',
-      impact: 'High operational risk. Contractor could be left with significant unrecoverable costs for specialized equipment leases and labor commitments that cannot be cancelled on 5 days\' notice.', 
-      type: 'primary' 
-    },
-    { 
-      id: '03', 
-      title: 'Non-Standard Payment Terms', 
-      ref: 'Page 1 • Paragraph 5 • Section 3', 
-      text: '"Net 60 days following receipt of a valid invoice."', 
-      reasoning: 'Most commercial contracts follow a Net 30 or "Pay-when-Paid" cycle. Net 60 significantly strains the contractor\'s cash flow, effectively forcing the contractor to finance the owner\'s project for an additional 30 days.',
-      impact: 'Cash flow strain. This will likely require the use of a line of credit to cover payroll and material costs, increasing the effective cost of the project by the interest rate incurred.', 
-      type: 'variant' 
-    },
-  ];
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const thread = await loadCurrentThread();
+        if (thread?.contract?.pages?.length) {
+          setPages(thread.contract.pages);
+          setDocName(thread.contract.name);
+        }
+        if (thread?.citations?.length) {
+          setCitations(thread.citations as Citation[]);
+        }
+      } catch (err) {
+        console.error('Failed to load sources:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
 
-  const sections = [
-    { id: 'section-1', title: '1. Scope of Work' },
-    { id: 'section-2', title: '2. Indemnification', risk: 'critical' },
-    { id: 'section-3', title: '3. Payment Terms' },
-    { id: 'section-4', title: '4. Termination', risk: 'primary' },
-    { id: 'section-5', title: '5. Intellectual Property' },
-    { id: 'section-6', title: '6. Dispute Resolution' },
-  ];
+  // Pages that have at least one citation referencing them
+  const citedPageNumbers = new Set(
+    citations.map(c => parsePageFromSource(c.source)).filter((n): n is number => n !== null)
+  );
 
-  const scrollToSection = (id: string) => {
-    const element = document.getElementById(id);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+  // Auto-detected outline from page headings
+  const outline = pages.map(p => ({
+    pageNumber: p.pageNumber,
+    heading:    extractHeading(p.text) ?? `Page ${p.pageNumber}`,
+    hasCitation: citedPageNumbers.has(p.pageNumber),
+  }));
+
+  // Filtered citations based on search
+  const filteredCitations = search.trim()
+    ? citations.filter(c =>
+        c.title.toLowerCase().includes(search.toLowerCase()) ||
+        c.text.toLowerCase().includes(search.toLowerCase()) ||
+        c.source.toLowerCase().includes(search.toLowerCase())
+      )
+    : citations;
+
+  const scrollToPage = (pageNumber: number) => {
+    const el = document.getElementById(`page-${pageNumber}`);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
+  // ---------------------------------------------------------------------------
+  // Loading state
+  // ---------------------------------------------------------------------------
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-4rem)] gap-4">
+        <Loader2 size={32} className="animate-spin text-primary" />
+        <p className="text-on-surface-variant font-bold">Loading document...</p>
+      </div>
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // No analysis yet
+  // ---------------------------------------------------------------------------
+  if (pages.length === 0 && citations.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[calc(100vh-4rem)] gap-4 text-center px-8">
+        <FileText size={48} className="text-slate-300" />
+        <h2 className="text-xl font-bold text-on-surface">No document loaded</h2>
+        <p className="text-on-surface-variant max-w-sm text-sm">
+          Upload and analyze a contract to view the document text and AI-extracted citations here.
+        </p>
+        <button
+          onClick={() => navigate('/intake')}
+          className="mt-2 bg-primary text-white px-6 py-2.5 rounded-lg font-bold hover:bg-primary-dim transition-all"
+        >
+          Go to Intake
+        </button>
+      </div>
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Main layout
+  // ---------------------------------------------------------------------------
   return (
     <div className="flex h-[calc(100vh-4rem)] overflow-hidden">
-      {/* Left: Document Viewer */}
-      <section className="flex-1 flex flex-col border-r border-slate-200">
-        <div className="h-14 flex items-center justify-between px-6 bg-slate-50 border-b border-slate-200">
-          <div className="flex items-center gap-3">
-            <FileText className="text-primary" size={18} />
-            <h2 className="font-headline font-bold text-on-surface text-sm">BuildCorp_Prime_Contract_v4.pdf</h2>
+
+      {/* ── Left: Document Viewer ── */}
+      <section className="flex-1 flex flex-col border-r border-slate-200 min-w-0">
+
+        {/* Toolbar */}
+        <div className="h-14 flex items-center justify-between px-6 bg-slate-50 border-b border-slate-200 shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <FileText className="text-primary shrink-0" size={18} />
+            <h2 className="font-headline font-bold text-on-surface text-sm truncate">
+              {docName || 'Contract Document'}
+            </h2>
+            {pages.length > 0 && (
+              <span className="text-[10px] text-slate-400 shrink-0">{pages.length} pages</span>
+            )}
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 shrink-0">
             <div className="flex items-center gap-1 bg-white border border-slate-200 rounded px-2 py-1">
-              <button className="p-1 hover:bg-slate-50 rounded transition-colors"><ZoomOut size={14} /></button>
-              <span className="text-xs font-mono px-2">100%</span>
-              <button className="p-1 hover:bg-slate-50 rounded transition-colors"><ZoomIn size={14} /></button>
+              <button
+                onClick={() => setZoom(z => Math.max(70, z - 10))}
+                className="p-1 hover:bg-slate-50 rounded transition-colors"
+              >
+                <ZoomOut size={14} />
+              </button>
+              <span className="text-xs font-mono px-2 w-12 text-center">{zoom}%</span>
+              <button
+                onClick={() => setZoom(z => Math.min(150, z + 10))}
+                className="p-1 hover:bg-slate-50 rounded transition-colors"
+              >
+                <ZoomIn size={14} />
+              </button>
             </div>
-            <button className="text-on-surface-variant hover:text-primary transition-colors">
-              <Download size={18} />
-            </button>
           </div>
         </div>
-        
+
         <div className="flex-1 flex overflow-hidden">
-          {/* Document Outline Sidebar */}
-          <div className="w-56 bg-white border-r border-slate-100 flex flex-col">
+
+          {/* Document Outline */}
+          <div className="w-56 bg-white border-r border-slate-100 flex flex-col shrink-0">
             <div className="p-4 border-b border-slate-50 flex items-center gap-2">
               <List size={14} className="text-slate-400" />
-              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Document Outline</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Outline</span>
             </div>
-            <div className="flex-1 overflow-y-auto p-2 space-y-1">
-              {sections.map((section) => (
-                <button
-                  key={section.id}
-                  onClick={() => scrollToSection(section.id)}
-                  className="w-full text-left px-3 py-2 rounded-lg text-[11px] font-medium text-slate-600 hover:bg-slate-50 hover:text-primary transition-all flex items-center justify-between group"
-                >
-                  <span className="truncate">{section.title}</span>
-                  {section.risk && (
-                    <div className={`w-1.5 h-1.5 rounded-full ${section.risk === 'critical' ? 'bg-rose-500' : 'bg-amber-500'}`} />
-                  )}
-                </button>
-              ))}
+            <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
+              {outline.length === 0 ? (
+                <p className="text-[11px] text-slate-400 p-3">No sections detected</p>
+              ) : (
+                outline.map(item => (
+                  <button
+                    key={item.pageNumber}
+                    onClick={() => scrollToPage(item.pageNumber)}
+                    className="w-full text-left px-3 py-2 rounded-lg text-[11px] font-medium text-slate-600 hover:bg-slate-50 hover:text-primary transition-all flex items-center justify-between gap-2 group"
+                  >
+                    <span className="truncate">{item.heading}</span>
+                    {item.hasCitation && (
+                      <div className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                    )}
+                  </button>
+                ))
+              )}
             </div>
             <div className="p-4 bg-slate-50/50 border-t border-slate-100">
               <div className="flex items-center gap-2 text-[10px] text-slate-400 font-medium">
                 <Bookmark size={12} />
-                <span>Page 1 of 24</span>
+                <span>{pages.length} page{pages.length !== 1 ? 's' : ''}</span>
               </div>
             </div>
           </div>
 
-          {/* Main Viewer Area */}
-          <div ref={scrollContainerRef} className="flex-1 overflow-y-auto bg-slate-100 p-8 flex justify-center scroll-smooth">
-            <div className="w-full max-w-3xl bg-white shadow-lg p-16 min-h-[1500px] relative font-serif text-[#1e1e1e] leading-relaxed">
-              <h1 className="text-2xl font-bold text-center mb-12 uppercase tracking-widest border-b-2 border-on-surface pb-6">Master Services Agreement</h1>
-              
-              <div className="space-y-10 text-sm">
-                <section id="section-1" className="scroll-mt-10">
-                  <h3 className="font-bold mb-2">1. SCOPE OF WORK</h3>
-                  <p>Contractor shall perform the services described in Exhibit A. All services shall be performed in a professional and workmanlike manner in accordance with the highest industry standards. Contractor is responsible for providing all labor, materials, equipment, and supervision necessary to complete the Work.</p>
-                </section>
-                
-                {/* Critical Risk Highlight */}
-                <section id="section-2" className="bg-rose-50 border-2 border-rose-500 p-8 -mx-8 rounded-xl relative group shadow-md scroll-mt-10">
-                  <div className="absolute -top-3 left-4 bg-rose-500 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-sm flex items-center gap-1">
-                    <AlertTriangle size={10} />
-                    CRITICAL RISK ITEM
-                  </div>
-                  <h3 className="font-bold mb-2">2. INDEMNIFICATION</h3>
-                  <p className="font-medium italic">
-                    "The Contractor agrees to indemnify, defend, and hold harmless BuildCorp, its officers, directors, and employees from and against any and all claims, damages, losses, and expenses, including but not limited to attorney's fees, arising out of or resulting from the performance of the Work, <span className="underline decoration-rose-500 decoration-2 underline-offset-2">regardless of whether such claims are caused in part or in whole by the negligence of BuildCorp</span>."
-                  </p>
-                  <div className="mt-4 flex items-center gap-4">
-                    <div className="flex items-center gap-1.5 text-rose-700 text-[11px] font-bold">
-                      <Scale size={14} />
-                      Legal Reasoning: Unfair Risk Allocation
-                    </div>
-                  </div>
-                </section>
-
-                <section id="section-3" className="scroll-mt-10">
-                  <h3 className="font-bold mb-2">3. PAYMENT TERMS</h3>
-                  <p>Invoices shall be submitted monthly for Work completed during the preceding month. <span className="bg-slate-100 px-1 rounded">Payment shall be made within sixty (60) days following receipt of a valid and undisputed invoice.</span> BuildCorp reserves the right to withhold retainage of ten percent (10%) from each progress payment until Final Completion.</p>
-                </section>
-                
-                {/* Primary Risk Highlight */}
-                <section id="section-4" className="bg-amber-50 border-2 border-amber-500 p-8 -mx-8 rounded-xl relative group shadow-md scroll-mt-10">
-                  <div className="absolute -top-3 left-4 bg-amber-500 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-sm flex items-center gap-1">
-                    <Gavel size={10} />
-                    PRIMARY RISK
-                  </div>
-                  <h3 className="font-bold mb-2">4. TERMINATION FOR CONVENIENCE</h3>
-                  <p className="font-medium italic">
-                    "BuildCorp may, at its sole discretion and without cause, <span className="underline decoration-amber-500 decoration-2 underline-offset-2">terminate this Agreement at any time, for any reason or no reason, upon five (5) days' written notice to Contractor</span>. In the event of such termination, Contractor shall be entitled to receive payment only for Work properly performed through the date of termination."
-                  </p>
-                  <div className="mt-4 flex items-center gap-1.5 text-amber-700 text-[11px] font-bold">
-                    <Info size={14} />
-                    Legal Reasoning: Insufficient Notice Period
-                  </div>
-                </section>
-
-                <section id="section-5" className="scroll-mt-10">
-                  <h3 className="font-bold mb-2">5. INTELLECTUAL PROPERTY</h3>
-                  <p>Any and all work product, including but not limited to designs, blueprints, technical drawings, and data generated by Contractor in the performance of the Work, shall be the sole and exclusive property of BuildCorp. Contractor hereby assigns all right, title, and interest in such work product to BuildCorp.</p>
-                </section>
-
-                <section id="section-6" className="scroll-mt-10">
-                  <h3 className="font-bold mb-2">6. DISPUTE RESOLUTION</h3>
-                  <p>Any dispute, controversy, or claim arising out of or relating to this Agreement shall be settled by binding arbitration in accordance with the Construction Industry Arbitration Rules of the American Arbitration Association. The venue for such arbitration shall be Wilmington, Delaware.</p>
-                </section>
-                
-                <p className="text-on-surface-variant/40 italic mt-20 text-center text-xs">... [End of Page 1] ...</p>
+          {/* Page Text Viewer */}
+          <div ref={scrollRef} className="flex-1 overflow-y-auto bg-slate-100 p-8 scroll-smooth">
+            {pages.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full gap-3 text-center">
+                <FileText size={40} className="text-slate-300" />
+                <p className="text-sm text-slate-500 font-medium">
+                  Document text could not be extracted.<br />
+                  This may be a scanned or image-only PDF.
+                </p>
               </div>
-            </div>
+            ) : (
+              <div
+                className="space-y-6 mx-auto"
+                style={{ maxWidth: `${Math.round(760 * zoom / 100)}px`, fontSize: `${zoom}%` }}
+              >
+                {pages.map(page => {
+                  const isCited = citedPageNumbers.has(page.pageNumber);
+                  const pageCitations = citations.filter(c => parsePageFromSource(c.source) === page.pageNumber);
+
+                  return (
+                    <div
+                      key={page.pageNumber}
+                      id={`page-${page.pageNumber}`}
+                      className={`bg-white shadow-sm rounded-xl scroll-mt-4 overflow-hidden ${isCited ? 'ring-2 ring-rose-400' : ''}`}
+                    >
+                      {/* Page header */}
+                      <div className={`flex items-center justify-between px-8 py-3 border-b text-[10px] font-bold uppercase tracking-widest ${isCited ? 'bg-rose-50 border-rose-200 text-rose-600' : 'bg-slate-50 border-slate-100 text-slate-400'}`}>
+                        <span>{docName || 'Contract'}</span>
+                        <div className="flex items-center gap-3">
+                          {isCited && (
+                            <div className="flex items-center gap-1 text-rose-600">
+                              <AlertTriangle size={10} />
+                              <span>{pageCitations.length} risk clause{pageCitations.length !== 1 ? 's' : ''}</span>
+                            </div>
+                          )}
+                          <span>Page {page.pageNumber}</span>
+                        </div>
+                      </div>
+
+                      {/* Page text */}
+                      <div className="p-10 font-serif text-[#1e1e1e] leading-relaxed text-sm whitespace-pre-wrap">
+                        {page.text}
+                      </div>
+
+                      {/* Inline citation badges */}
+                      {pageCitations.length > 0 && (
+                        <div className="px-10 pb-8 space-y-3">
+                          {pageCitations.map(c => {
+                            const style = confidenceStyle(c.confidence);
+                            return (
+                              <div key={c.id} className={`rounded-lg p-4 border ${style.bg} ${style.border}`}>
+                                <div className="flex items-start gap-3">
+                                  <AlertTriangle size={14} className="text-rose-500 shrink-0 mt-0.5" />
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                                      <span className="text-xs font-bold text-on-surface">{c.title}</span>
+                                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${style.badge}`}>{c.confidence} Confidence</span>
+                                    </div>
+                                    <p className="text-[11px] text-on-surface-variant leading-relaxed">{c.explanation}</p>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       </section>
 
-      {/* Right: Citations & Analysis */}
-      <section className="w-[420px] flex flex-col bg-white overflow-hidden shadow-2xl z-10">
+      {/* ── Right: Citations Panel ── */}
+      <section className="w-[420px] flex flex-col bg-white overflow-hidden shadow-2xl z-10 shrink-0">
+
+        {/* Panel header */}
         <div className="p-6 border-b border-slate-100 bg-slate-50/50">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-headline font-bold text-lg text-on-surface">Citations & Evidence</h2>
-            <span className="bg-primary/10 text-primary px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">3 Key Findings</span>
+            <span className="bg-primary/10 text-primary px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">
+              {citations.length} Finding{citations.length !== 1 ? 's' : ''}
+            </span>
           </div>
-          <div className="relative group">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm group-focus-within:text-primary transition-colors" size={16} />
-            <input 
-              className="w-full bg-white border border-slate-200 rounded-lg pl-10 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none" 
-              placeholder="Search terms in analysis..." 
-              type="text" 
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full bg-white border border-slate-200 rounded-lg pl-10 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              placeholder="Search citations..."
+              type="text"
             />
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-8">
-          {citations.map((cite) => (
-            <div key={cite.id} className="group">
-              <div className="flex items-center gap-3 mb-3">
-                <span className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shadow-sm ${
-                  cite.type === 'error' ? 'bg-rose-500 text-white' : 
-                  cite.type === 'primary' ? 'bg-amber-500 text-white' : 'bg-primary text-white'
-                }`}>
-                  {cite.id}
-                </span>
-                <div>
-                  <h4 className="font-bold text-sm text-on-surface leading-tight">{cite.title}</h4>
-                  <p className="text-[10px] text-on-surface-variant font-medium mt-0.5">{cite.ref}</p>
-                </div>
-              </div>
-              
-              <div className={`rounded-xl p-5 border shadow-sm group-hover:shadow-md transition-all ${
-                cite.type === 'error' ? 'bg-rose-50/50 border-rose-200' : 
-                cite.type === 'primary' ? 'bg-amber-50/50 border-amber-200' : 'bg-slate-50 border-slate-200'
-              }`}>
-                <p className="text-xs text-on-surface-variant leading-relaxed mb-4 italic font-medium">
-                  {cite.text}
-                </p>
-                
-                <div className="space-y-4">
-                  <div>
-                    <span className={`text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 mb-1.5 ${
-                      cite.type === 'error' ? 'text-rose-600' : 
-                      cite.type === 'primary' ? 'text-amber-600' : 'text-primary'
-                    }`}>
-                      <Scale size={12} />
-                      Legal Reasoning
-                    </span>
-                    <p className="text-xs text-on-surface leading-relaxed">
-                      {cite.reasoning}
-                    </p>
-                  </div>
-                  
-                  <div className="pt-3 border-t border-slate-200/50">
-                    <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider block mb-1.5">Impact Analysis</span>
-                    <p className="text-xs text-on-surface leading-relaxed font-medium">
-                      {cite.impact}
-                    </p>
-                  </div>
-                </div>
-              </div>
+        {/* Citation list */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+
+          {/* No analysis at all */}
+          {citations.length === 0 && (
+            <div className="text-center py-8 space-y-3">
+              <Scale size={32} className="text-slate-300 mx-auto" />
+              <p className="text-sm font-bold text-on-surface">No citations extracted</p>
+              <p className="text-xs text-on-surface-variant leading-relaxed">
+                AI citations could not be extracted for this document. Review the Report page for findings, or run a new analysis.
+              </p>
             </div>
-          ))}
+          )}
+
+          {/* Search returned nothing */}
+          {citations.length > 0 && filteredCitations.length === 0 && (
+            <p className="text-xs text-slate-400 text-center py-6">No citations match "{search}"</p>
+          )}
+
+          {filteredCitations.map((cite, i) => {
+            const style = confidenceStyle(cite.confidence);
+            const pageNum = parsePageFromSource(cite.source);
+
+            return (
+              <div key={cite.id} className="group">
+                {/* Citation header */}
+                <div className="flex items-center gap-3 mb-3">
+                  <span className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shadow-sm shrink-0 ${
+                    cite.confidence === 'High'   ? 'bg-emerald-500 text-white' :
+                    cite.confidence === 'Medium' ? 'bg-amber-500 text-white' :
+                                                   'bg-rose-500 text-white'
+                  }`}>
+                    {String(i + 1).padStart(2, '0')}
+                  </span>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h4 className="font-bold text-sm text-on-surface leading-tight">{cite.title}</h4>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${style.badge}`}>
+                        {cite.confidence}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-on-surface-variant font-medium mt-0.5">{cite.source}</p>
+                  </div>
+                </div>
+
+                {/* Citation body */}
+                <div className={`rounded-xl p-5 border shadow-sm group-hover:shadow-md transition-all ${style.bg} ${style.border}`}>
+                  {/* Quoted text */}
+                  <p className="text-xs text-on-surface-variant leading-relaxed mb-4 italic font-medium">
+                    "{cite.text}"
+                  </p>
+
+                  <div className="space-y-4">
+                    {/* Explanation */}
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 mb-1.5 text-slate-600">
+                        <Scale size={12} /> Analysis
+                      </span>
+                      <p className="text-xs text-on-surface leading-relaxed">{cite.explanation}</p>
+                    </div>
+
+                    {/* Scroll to page button */}
+                    {pageNum !== null && (
+                      <button
+                        onClick={() => scrollToPage(pageNum)}
+                        className="flex items-center gap-1.5 text-[11px] font-bold text-primary hover:underline mt-1"
+                      >
+                        <ArrowRight size={12} />
+                        Jump to Page {pageNum}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
 
+        {/* Ask the Contract footer (wired in Phase 7) */}
         <div className="p-6 bg-slate-50 border-t border-slate-200">
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-2">
               <Info className="text-primary" size={14} />
               <span className="text-[10px] font-bold text-primary uppercase tracking-widest">Ask the Contract</span>
+              <span className="text-[10px] text-slate-400 ml-auto">Coming in Phase 7</span>
             </div>
             <div className="relative">
-              <input 
-                className="w-full bg-white border border-slate-200 rounded-xl pl-4 pr-12 py-3 text-sm focus:ring-2 focus:ring-primary focus:border-transparent shadow-sm outline-none placeholder:text-slate-400" 
-                placeholder="Ask a question about these clauses..." 
-                type="text" 
+              <input
+                className="w-full bg-white border border-slate-200 rounded-xl pl-4 pr-12 py-3 text-sm focus:ring-2 focus:ring-primary focus:border-transparent shadow-sm outline-none placeholder:text-slate-400"
+                placeholder="Ask a question about these clauses..."
+                type="text"
+                disabled
               />
-              <button className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-primary text-white rounded-lg flex items-center justify-center hover:bg-primary-dim transition-colors">
+              <button
+                disabled
+                className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-slate-200 text-slate-400 rounded-lg flex items-center justify-center cursor-not-allowed"
+              >
                 <ArrowRight size={16} />
               </button>
             </div>
