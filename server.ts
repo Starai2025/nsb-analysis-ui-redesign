@@ -764,6 +764,7 @@ async function startServer() {
         createdAt: now,
         updatedAt: now,
         title:     raw.title,
+        metadata:  raw.metadata,
         sections:  raw.sections,
       };
       console.log("Report generated.");

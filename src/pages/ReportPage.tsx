@@ -228,7 +228,16 @@ function NoticeSection({ n, notice }: { n: number; notice: NoticeRequirements })
 // ---------------------------------------------------------------------------
 
 function ReportMemo({ report, analysisDate }: { report: Report; analysisDate: string }) {
-  const m = report.metadata;
+  // Defensive fallback — metadata should always be present after the fix,
+  // but guard against any stale cached data reaching this renderer
+  const m: Report['metadata'] = report.metadata ?? {
+    projectName:     report.title ?? '',
+    contractNumber:  '',
+    changeRequestId: '',
+    ownerClient:     '',
+    dateOfAnalysis:  analysisDate,
+    reportStatus:    'Draft',
+  };
   const s = report.sections;
 
   const subtitle = [m.projectName, m.contractNumber, m.changeRequestId]
@@ -330,10 +339,15 @@ export default function ReportPage() {
         if (thread.analysis)    setAnalysis(thread.analysis);
         if (thread.projectData) setProjectData(thread.projectData);
         setAnalysisDate(thread.contract?.metadata?.uploadedAt ?? thread.createdAt ?? '');
-        if (thread.report) {
+        if (thread.report && thread.report.metadata && thread.report.sections?.ownerRequest !== undefined) {
           setReport(thread.report);
           setReportStatus('ready');
         } else {
+          // Report exists but is stale/old schema (missing metadata or new sections) — clear it
+          if (thread.report) {
+            console.warn('Stale report shape detected — clearing for regeneration');
+            await saveCurrentThread({ ...thread, report: undefined });
+          }
           setReportStatus('idle');
         }
       } catch (err) {
