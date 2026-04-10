@@ -1,14 +1,18 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  FileText, AlertTriangle, Banknote, CalendarClock,
-  Loader2, CheckCircle2, Download, RotateCcw,
-  ShieldAlert, TrendingUp, Clock, Sparkles, RefreshCw
+  FileText, AlertTriangle, Loader2, CheckCircle2,
+  Download, RotateCcw, Sparkles, RefreshCw,
+  ChevronRight
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { loadCurrentThread, saveCurrentThread, clearCurrentThread } from '../lib/db';
-import { Report, ReportStatus, AnalysisResult, ProjectData } from '../types';
+import {
+  Report, ReportStatus, AnalysisResult, ProjectData,
+  ArcadisPosition, ClauseEntry, ScheduleImpact, NoticeRequirements,
+  ReportMetadata
+} from '../types';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -17,35 +21,50 @@ import { Report, ReportStatus, AnalysisResult, ProjectData } from '../types';
 function safeDate(value: string): string {
   if (!value || value === 'Not specified') return 'Not specified';
   const d = new Date(value);
-  return isNaN(d.getTime()) ? value : d.toLocaleDateString();
+  return isNaN(d.getTime()) ? value : d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 }
 
-interface RiskScore {
-  score:   number;
-  label:   'Low' | 'Moderate' | 'High';
-  color:   string;
-  bg:      string;
-  bar:     string;
-  factors: string[];
+function statusColor(v: string) {
+  const map: Record<string, string> = {
+    'In Scope': 'bg-emerald-100 text-emerald-800 border-emerald-200',
+    'Out of Scope': 'bg-rose-100 text-rose-800 border-rose-200',
+    'Partially Out of Scope': 'bg-amber-100 text-amber-800 border-amber-200',
+    'Unclear': 'bg-slate-100 text-slate-700 border-slate-200',
+    'Likely Yes': 'bg-emerald-100 text-emerald-800 border-emerald-200',
+    'Possible': 'bg-amber-100 text-amber-800 border-amber-200',
+    'Likely No': 'bg-rose-100 text-rose-800 border-rose-200',
+    'Yes': 'bg-rose-100 text-rose-800 border-rose-200',
+    'Likely': 'bg-amber-100 text-amber-800 border-amber-200',
+    'No': 'bg-emerald-100 text-emerald-800 border-emerald-200',
+    'Not Enough Information': 'bg-slate-100 text-slate-700 border-slate-200',
+    'Low': 'bg-emerald-100 text-emerald-800 border-emerald-200',
+    'Moderate': 'bg-amber-100 text-amber-800 border-amber-200',
+    'High': 'bg-rose-100 text-rose-800 border-rose-200',
+    'Critical': 'bg-rose-200 text-rose-900 border-rose-300',
+  };
+  return map[v] ?? 'bg-slate-100 text-slate-700 border-slate-200';
 }
 
-function computeRiskScore(analysis: AnalysisResult): RiskScore {
-  let score = 0;
-  const factors: string[] = [];
-  if (analysis.scopeStatus === 'Out of Scope')  { score += 15; factors.push('Change is out of contract scope (+15)'); }
-  if (analysis.extraMoneyLikely)                { score += 25; factors.push('Monetary claim likely (+25)'); }
-  if (analysis.extraTimeLikely)                 { score += 20; factors.push('Schedule impact likely (+20)'); }
-  const rc = analysis.keyRisks?.length ?? 0;
-  const rp = Math.min(rc * 8, 40);
-  if (rc > 0) { score += rp; factors.push(`${rc} key risk${rc > 1 ? 's' : ''} identified (+${rp})`); }
-  score = Math.min(score, 100);
-  if (score <= 33) return { score, label: 'Low',      color: 'text-emerald-700', bg: 'bg-emerald-50',  bar: 'bg-emerald-500', factors };
-  if (score <= 66) return { score, label: 'Moderate', color: 'text-amber-700',   bg: 'bg-amber-50',    bar: 'bg-amber-500',   factors };
-  return              { score, label: 'High',     color: 'text-rose-700',    bg: 'bg-rose-50',     bar: 'bg-rose-500',    factors };
+function DecisionBadge({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center gap-3 py-1.5">
+      <span className="text-xs font-semibold text-slate-500 w-36 shrink-0">{label}</span>
+      <span className={`text-xs font-bold px-2.5 py-1 rounded border ${statusColor(value)}`}>{value}</span>
+    </div>
+  );
+}
+
+function SectionHeading({ n, title }: { n: number; title: string }) {
+  return (
+    <div className="flex items-baseline gap-3 mb-5 pb-2 border-b border-slate-200">
+      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] w-6 shrink-0">{String(n).padStart(2, '0')}</span>
+      <h3 className="text-sm font-bold text-on-surface uppercase tracking-[0.12em]">{title}</h3>
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
-// Multi-page PDF export
+// PDF export — multi-page
 // ---------------------------------------------------------------------------
 
 async function exportMultiPagePDF(element: HTMLElement, filename: string): Promise<void> {
@@ -53,70 +72,268 @@ async function exportMultiPagePDF(element: HTMLElement, filename: string): Promi
     scale: 2, useCORS: true, logging: false,
     width: element.scrollWidth, windowWidth: element.scrollWidth,
   });
-  const imgData  = canvas.toDataURL('image/png');
   const pdf      = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
   const pageW    = pdf.internal.pageSize.getWidth();
   const pageH    = pdf.internal.pageSize.getHeight();
-  const margin   = 24;
+  const margin   = 28;
   const contentW = pageW - margin * 2;
   const imgH     = (canvas.height * contentW) / canvas.width;
   const usableH  = pageH - margin * 2;
-  let yRemaining = imgH, srcY = 0, isFirstPage = true;
+  let remaining  = imgH, srcY = 0, first = true;
 
-  while (yRemaining > 0) {
-    if (!isFirstPage) pdf.addPage();
-    isFirstPage = false;
-    const sliceH = Math.min(usableH, yRemaining);
-    const sliceCanvas        = document.createElement('canvas');
-    sliceCanvas.width        = canvas.width;
-    sliceCanvas.height       = Math.ceil(sliceH * (canvas.height / imgH));
-    sliceCanvas.getContext('2d')!.drawImage(
-      canvas, 0, Math.ceil(srcY * (canvas.height / imgH)),
-      canvas.width, sliceCanvas.height, 0, 0, canvas.width, sliceCanvas.height
-    );
-    pdf.addImage(sliceCanvas.toDataURL('image/png'), 'PNG', margin, margin, contentW, sliceH);
+  while (remaining > 0) {
+    if (!first) pdf.addPage();
+    first = false;
+    const sliceH   = Math.min(usableH, remaining);
+    const sc       = document.createElement('canvas');
+    sc.width       = canvas.width;
+    sc.height      = Math.ceil(sliceH * (canvas.height / imgH));
+    sc.getContext('2d')!.drawImage(canvas, 0, Math.ceil(srcY * (canvas.height / imgH)), canvas.width, sc.height, 0, 0, canvas.width, sc.height);
+    pdf.addImage(sc.toDataURL('image/png'), 'PNG', margin, margin, contentW, sliceH);
     pdf.setFontSize(7);
     pdf.setTextColor(160, 160, 160);
-    pdf.text('Never Sign Blind — Proprietary AI Analysis — Confidential', pageW / 2, pageH - 10, { align: 'center' });
-    srcY += sliceH;
-    yRemaining -= sliceH;
+    pdf.text('Never Sign Blind — Confidential — Change Order Analysis Report', pageW / 2, pageH - 12, { align: 'center' });
+    srcY      += sliceH;
+    remaining -= sliceH;
   }
   pdf.save(filename);
 }
 
 // ---------------------------------------------------------------------------
-// Component
+// Section renderers
+// ---------------------------------------------------------------------------
+
+function ProseSection({ n, title, content }: { n: number; title: string; content: string }) {
+  return (
+    <section className="break-inside-avoid">
+      <SectionHeading n={n} title={title} />
+      <div className="prose-memo">
+        {content.split('\n\n').filter(Boolean).map((para, i) => (
+          <p key={i} className="text-sm text-on-surface leading-relaxed mb-3 last:mb-0">{para}</p>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function PositionSection({ n, pos }: { n: number; pos: ArcadisPosition }) {
+  return (
+    <section className="break-inside-avoid">
+      <SectionHeading n={n} title="Arcadis Position" />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-slate-50 rounded-xl p-5 border border-slate-200">
+          <DecisionBadge label="Scope Status"    value={pos.scopeStatus} />
+          <div className="my-1 border-t border-slate-100" />
+          <DecisionBadge label="Responsibility"  value={pos.responsibility} />
+          <div className="my-1 border-t border-slate-100" />
+          <DecisionBadge label="Fee Position"    value={pos.feePosition} />
+          <div className="my-1 border-t border-slate-100" />
+          <DecisionBadge label="Time Position"   value={pos.timePosition} />
+        </div>
+        <div className="flex items-center">
+          <p className="text-sm text-on-surface leading-relaxed">{pos.explanation}</p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ClausesSection({ n, clauses }: { n: number; clauses: ClauseEntry[] }) {
+  if (!clauses?.length) {
+    return (
+      <section className="break-inside-avoid">
+        <SectionHeading n={n} title="Key Contract Clauses" />
+        <p className="text-sm text-slate-400 italic">The current record does not provide enough support to confirm key clauses. Further contract review is required.</p>
+      </section>
+    );
+  }
+  return (
+    <section className="break-inside-avoid">
+      <SectionHeading n={n} title="Key Contract Clauses" />
+      <div className="space-y-6">
+        {clauses.map((c, i) => (
+          <div key={i} className="border border-slate-200 rounded-xl overflow-hidden">
+            <div className="bg-slate-50 px-5 py-2.5 flex items-center gap-2 border-b border-slate-200">
+              <ChevronRight size={12} className="text-slate-400" />
+              <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">{c.reference}</span>
+            </div>
+            <div className="px-5 py-4 space-y-3">
+              <blockquote className="border-l-4 border-primary/30 pl-4 text-sm italic text-slate-600 leading-relaxed">
+                {c.excerpt}
+              </blockquote>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Meaning</span>
+                  <p className="text-xs text-on-surface leading-relaxed">{c.meaning}</p>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Why It Matters</span>
+                  <p className="text-xs text-on-surface leading-relaxed">{c.whyItMatters}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ScheduleSection({ n, s }: { n: number; s: ScheduleImpact }) {
+  return (
+    <section className="break-inside-avoid">
+      <SectionHeading n={n} title="Schedule Impact" />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-slate-50 rounded-xl p-5 border border-slate-200">
+          <DecisionBadge label="Critical Path Impact" value={s.criticalPathImpact} />
+          <div className="my-1 border-t border-slate-100" />
+          <DecisionBadge label="Delay Risk Level"     value={s.delayRiskLevel} />
+        </div>
+        <div className="flex items-center">
+          <p className="text-sm text-on-surface leading-relaxed">{s.explanation}</p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function NoticeSection({ n, notice }: { n: number; notice: NoticeRequirements }) {
+  return (
+    <section className="break-inside-avoid">
+      <SectionHeading n={n} title="Notice / Procedural Requirements" />
+      <div className="bg-slate-50 rounded-xl p-5 border border-slate-200 space-y-2">
+        <DecisionBadge label="Notice Required" value={notice.noticeRequired} />
+        <div className="border-t border-slate-100" />
+        <div className="flex items-start gap-3 py-1.5">
+          <span className="text-xs font-semibold text-slate-500 w-36 shrink-0">Deadline</span>
+          <span className="text-xs text-on-surface font-medium">{notice.deadline}</span>
+        </div>
+        <div className="border-t border-slate-100" />
+        <div className="flex items-start gap-3 py-1.5">
+          <span className="text-xs font-semibold text-slate-500 w-36 shrink-0">Recipient</span>
+          <span className="text-xs text-on-surface font-medium">{notice.recipient}</span>
+        </div>
+        <div className="border-t border-slate-100" />
+        <div className="flex items-start gap-3 py-1.5">
+          <span className="text-xs font-semibold text-slate-500 w-36 shrink-0">Risk if Missed</span>
+          <span className="text-xs text-on-surface font-medium">{notice.riskIfMissed}</span>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Full memo renderer
+// ---------------------------------------------------------------------------
+
+function ReportMemo({ report, analysisDate }: { report: Report; analysisDate: string }) {
+  const m = report.metadata;
+  const s = report.sections;
+
+  const subtitle = [m.projectName, m.contractNumber, m.changeRequestId]
+    .filter(v => v && v !== 'Not specified' && v !== '')
+    .join(' | ');
+
+  const statusBadgeColor: Record<string, string> = {
+    'Draft':      'bg-slate-100 text-slate-700 border-slate-300',
+    'Ready':      'bg-emerald-100 text-emerald-700 border-emerald-300',
+    'Updated':    'bg-blue-100 text-blue-700 border-blue-300',
+    'Superseded': 'bg-slate-200 text-slate-500 border-slate-300',
+  };
+
+  return (
+    <>
+      {/* Memo header */}
+      <div className="pb-8 mb-10 border-b-2 border-slate-200">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-slate-400 mb-2">Never Sign Blind</p>
+            <h1 className="text-2xl font-extrabold text-on-surface font-headline leading-tight">
+              Change Order Analysis Report
+            </h1>
+            {subtitle && (
+              <p className="text-sm text-on-surface-variant mt-1.5">{subtitle}</p>
+            )}
+          </div>
+          <span className={`text-[10px] font-bold px-3 py-1.5 rounded border uppercase tracking-wider shrink-0 ${statusBadgeColor[m.reportStatus] ?? statusBadgeColor['Draft']}`}>
+            {m.reportStatus}
+          </span>
+        </div>
+
+        {/* Metadata block */}
+        <div className="mt-6 grid grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-2">
+          {[
+            ['Project',        m.projectName],
+            ['Contract No.',   m.contractNumber],
+            ['Change Request', m.changeRequestId],
+            ['Owner / Client', m.ownerClient],
+            ['Date of Analysis', m.dateOfAnalysis || safeDate(analysisDate)],
+          ].filter(([, v]) => v && v !== 'Not specified' && v !== '').map(([label, value]) => (
+            <div key={label} className="flex items-baseline gap-2">
+              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider shrink-0">{label}:</span>
+              <span className="text-xs text-on-surface font-medium truncate">{value}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 12 sections in locked order */}
+      <div className="space-y-12">
+        <ProseSection  n={1}  title="Executive Summary"           content={s.executiveSummary.content} />
+        <ProseSection  n={2}  title="Owner / Client Request"      content={s.ownerRequest.content} />
+        <PositionSection n={3} pos={s.arcadisPosition} />
+        <ClausesSection  n={4} clauses={s.keyContractClauses} />
+        <ProseSection  n={5}  title="Application"                 content={s.application.content} />
+        <ProseSection  n={6}  title="Commercial Analysis"         content={s.commercialAnalysis.content} />
+        <ScheduleSection n={7} s={s.scheduleImpact} />
+        <NoticeSection   n={8} notice={s.noticeRequirements} />
+        <ProseSection  n={9}  title="Risk & Mitigation"           content={s.riskAndMitigation.content} />
+        <ProseSection  n={10} title="Recommendation"              content={s.recommendation.content} />
+        <ProseSection  n={11} title="Draft Response"              content={s.draftResponse.content} />
+        <ProseSection  n={12} title="Source Snapshot"             content={s.sourceSnapshot.content} />
+      </div>
+
+      {/* Footer */}
+      <div className="mt-14 pt-6 border-t border-slate-200 flex justify-between items-center text-[10px] text-slate-400 font-medium">
+        <span>Never Sign Blind — Confidential</span>
+        {(m.dateOfAnalysis || analysisDate) && (
+          <span>Analyzed {m.dateOfAnalysis || safeDate(analysisDate)}</span>
+        )}
+        <span>Proprietary AI Analysis</span>
+      </div>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Page
 // ---------------------------------------------------------------------------
 
 export default function ReportPage() {
   const navigate = useNavigate();
 
-  // Report lifecycle — this replaces "analysis exists = ready"
-  const [reportStatus,     setReportStatus]     = useState<ReportStatus>('idle');
-  const [report,           setReport]           = useState<Report | null>(null);
-  const [analysis,         setAnalysis]         = useState<AnalysisResult | null>(null);
-  const [projectData,      setProjectData]       = useState<ProjectData | null>(null);
-  const [analysisDate,     setAnalysisDate]      = useState('');
-  const [errorMsg,         setErrorMsg]          = useState('');
-  const [exporting,        setExporting]         = useState(false);
+  const [reportStatus,   setReportStatus]   = useState<ReportStatus>('idle');
+  const [report,         setReport]         = useState<Report | null>(null);
+  const [analysis,       setAnalysis]       = useState<AnalysisResult | null>(null);
+  const [projectData,    setProjectData]    = useState<ProjectData | null>(null);
+  const [analysisDate,   setAnalysisDate]   = useState('');
+  const [errorMsg,       setErrorMsg]       = useState('');
+  const [exporting,      setExporting]      = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
 
-  // Load from IndexedDB on mount
   useEffect(() => {
     const load = async () => {
       try {
         const thread = await loadCurrentThread();
         if (!thread) { setReportStatus('idle'); return; }
-
         if (thread.analysis)    setAnalysis(thread.analysis);
         if (thread.projectData) setProjectData(thread.projectData);
         setAnalysisDate(thread.contract?.metadata?.uploadedAt ?? thread.createdAt ?? '');
-
         if (thread.report) {
           setReport(thread.report);
           setReportStatus('ready');
-        } else if (thread.analysis) {
-          // Analysis exists but no report yet — prompt user to generate
+        } else {
           setReportStatus('idle');
         }
       } catch (err) {
@@ -127,7 +344,6 @@ export default function ReportPage() {
     load();
   }, []);
 
-  // Generate report from server
   const handleGenerate = async () => {
     setReportStatus('generating');
     setErrorMsg('');
@@ -135,21 +351,16 @@ export default function ReportPage() {
       const res  = await fetch('/api/generate-report', { method: 'POST' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Report generation failed.');
-
       const newReport: Report = data.report;
-
-      // Persist to IndexedDB
       await saveCurrentThread({
         analysis:    analysis!,
         projectData: projectData ?? { name: '', contractNumber: '', changeRequestId: '' },
         report:      newReport,
       });
-
       setReport(newReport);
       setReportStatus('ready');
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'An unexpected error occurred.';
-      setErrorMsg(msg);
+      setErrorMsg(err instanceof Error ? err.message : 'An unexpected error occurred.');
       setReportStatus('failed');
     }
   };
@@ -157,22 +368,16 @@ export default function ReportPage() {
   const handleRegenerate = async () => {
     setReport(null);
     setReportStatus('idle');
-    // Clear report from IndexedDB
     const thread = await loadCurrentThread();
-    if (thread) {
-      await saveCurrentThread({
-        ...thread,
-        report: undefined,
-      });
-    }
+    if (thread) await saveCurrentThread({ ...thread, report: undefined });
   };
 
   const handleExportPDF = async () => {
     if (!reportRef.current || reportStatus !== 'ready') return;
     setExporting(true);
     try {
-      const slug     = projectData?.name ? projectData.name.replace(/\s+/g, '_') : 'Report';
-      const dateStr  = new Date().toISOString().split('T')[0];
+      const slug    = projectData?.name ? projectData.name.replace(/\s+/g, '_') : 'Report';
+      const dateStr = new Date().toISOString().split('T')[0];
       await exportMultiPagePDF(reportRef.current, `NeverSignBlind_${slug}_${dateStr}.pdf`);
     } finally {
       setExporting(false);
@@ -184,11 +389,8 @@ export default function ReportPage() {
     navigate('/intake');
   };
 
-  const riskScore          = analysis ? computeRiskScore(analysis) : null;
-  const formattedAnalysisDate = analysisDate ? safeDate(analysisDate) : '';
-
   // ---------------------------------------------------------------------------
-  // Render helpers
+  // Lifecycle renders
   // ---------------------------------------------------------------------------
 
   const renderIdle = () => (
@@ -202,8 +404,8 @@ export default function ReportPage() {
         </h3>
         <p className="text-on-surface-variant text-sm max-w-sm">
           {analysis
-            ? 'Your analysis is ready. Generate the formal report to produce the full written document.'
-            : 'Complete an analysis on the Intake page before generating a report.'}
+            ? 'Your analysis is ready. Generate the full Change Order Analysis Report.'
+            : 'Complete an analysis on the Intake page first.'}
         </p>
       </div>
       {analysis ? (
@@ -228,7 +430,9 @@ export default function ReportPage() {
     <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
       <Loader2 size={48} className="animate-spin text-primary" />
       <p className="text-on-surface font-bold text-lg">Generating Report...</p>
-      <p className="text-on-surface-variant text-sm">Claude is writing your formal analysis report. This usually takes 20–40 seconds.</p>
+      <p className="text-on-surface-variant text-sm max-w-sm">
+        Claude is writing your 12-section Change Order Analysis Report. This usually takes 30–60 seconds.
+      </p>
     </div>
   );
 
@@ -237,10 +441,8 @@ export default function ReportPage() {
       <div className="w-16 h-16 rounded-full bg-rose-100 flex items-center justify-center">
         <AlertTriangle size={28} className="text-rose-500" />
       </div>
-      <div className="space-y-2">
-        <p className="text-on-surface font-bold">Report generation failed</p>
-        <p className="text-xs text-on-surface-variant max-w-sm">{errorMsg}</p>
-      </div>
+      <p className="text-on-surface font-bold">Report generation failed</p>
+      <p className="text-xs text-on-surface-variant max-w-sm">{errorMsg}</p>
       <button
         onClick={handleGenerate}
         className="flex items-center gap-2 bg-primary text-white px-6 py-2.5 rounded-lg font-bold hover:bg-primary-dim transition-all"
@@ -250,129 +452,18 @@ export default function ReportPage() {
     </div>
   );
 
-  const renderReport = (r: Report) => (
-    <>
-      {/* Background watermark */}
-      <div className="absolute top-0 right-0 p-12 opacity-[0.03] pointer-events-none print:hidden">
-        <FileText size={400} />
-      </div>
-
-      {/* Report header */}
-      <div className="flex items-start justify-between pb-8 border-b border-slate-200">
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant mb-1">Never Sign Blind</p>
-          <h1 className="text-2xl font-extrabold text-on-surface font-headline">{r.title}</h1>
-          {projectData?.contractNumber && (
-            <p className="text-sm text-on-surface-variant mt-1">Contract: {projectData.contractNumber}</p>
-          )}
-          {projectData?.changeRequestId && (
-            <p className="text-sm text-on-surface-variant">Change Request: {projectData.changeRequestId}</p>
-          )}
-        </div>
-        <div className="text-right text-xs text-slate-400 shrink-0">
-          {formattedAnalysisDate && <p>Analyzed: {formattedAnalysisDate}</p>}
-          <p>Generated: {safeDate(r.createdAt)}</p>
-        </div>
-      </div>
-
-      {/* Risk Scorecard — derived from analysis data */}
-      {riskScore && (
-        <section>
-          <div className="flex items-center gap-4 mb-6">
-            <h3 className="text-xs font-bold text-on-surface-variant uppercase tracking-[0.2em]">Contract Risk Scorecard</h3>
-            <span className="h-px flex-1 bg-slate-200" />
-          </div>
-          <div
-            className={`rounded-2xl p-8 border ${riskScore.bg} flex flex-col md:flex-row items-start md:items-center gap-8`}
-            style={{ borderColor: riskScore.score > 66 ? '#fecaca' : riskScore.score > 33 ? '#fde68a' : '#a7f3d0' }}
-          >
-            <div className="flex flex-col items-center gap-2 shrink-0">
-              <div className={`w-24 h-24 rounded-full border-4 flex flex-col items-center justify-center ${riskScore.score > 66 ? 'border-rose-500' : riskScore.score > 33 ? 'border-amber-500' : 'border-emerald-500'}`}>
-                <span className={`text-3xl font-extrabold ${riskScore.color}`}>{riskScore.score}</span>
-                <span className={`text-[10px] font-bold uppercase tracking-wider ${riskScore.color}`}>/ 100</span>
-              </div>
-              <span className={`text-sm font-extrabold uppercase tracking-widest ${riskScore.color}`}>{riskScore.label} Risk</span>
-            </div>
-            <div className="flex-1 space-y-4">
-              <div>
-                <div className="flex justify-between text-xs font-bold text-slate-500 mb-2">
-                  <span>Risk Score</span><span>{riskScore.score} / 100</span>
-                </div>
-                <div className="w-full bg-slate-200 rounded-full h-3">
-                  <div className={`h-3 rounded-full ${riskScore.bar}`} style={{ width: `${riskScore.score}%` }} />
-                </div>
-              </div>
-              <div className="space-y-1">
-                {riskScore.factors.map((f, i) => (
-                  <div key={i} className="flex items-center gap-2 text-xs text-slate-600">
-                    <div className={`w-1.5 h-1.5 rounded-full ${riskScore.bar} shrink-0`} />{f}
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="flex flex-col gap-3 shrink-0">
-              <div className="flex items-center gap-2 text-xs font-bold">
-                <TrendingUp size={14} className={riskScore.color} />
-                <span className={riskScore.color}>{analysis?.extraMoneyLikely ? 'Money at risk' : 'No monetary risk'}</span>
-              </div>
-              <div className="flex items-center gap-2 text-xs font-bold">
-                <Clock size={14} className={riskScore.color} />
-                <span className={riskScore.color}>{analysis?.extraTimeLikely ? 'Schedule at risk' : 'No schedule risk'}</span>
-              </div>
-              <div className="flex items-center gap-2 text-xs font-bold">
-                <ShieldAlert size={14} className={riskScore.color} />
-                <span className={riskScore.color}>{analysis?.keyRisks?.length ?? 0} key risk{(analysis?.keyRisks?.length ?? 0) !== 1 ? 's' : ''}</span>
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Report sections — rendered from report.sections, not from analysis */}
-      {([
-        'executiveSummary',
-        'scopeAndResponsibility',
-        'commercialAnalysis',
-        'scheduleImpact',
-        'recommendation',
-      ] as const).map((key) => {
-        const section = r.sections[key];
-        return (
-          <section key={key}>
-            <div className="flex items-center gap-4 mb-6">
-              <h3 className="text-xs font-bold text-on-surface-variant uppercase tracking-[0.2em]">
-                {section.heading}
-              </h3>
-              <span className="h-px flex-1 bg-slate-200" />
-            </div>
-            <div className="bg-slate-50 p-8 rounded-xl border border-slate-200">
-              <p className="text-on-surface text-sm leading-relaxed whitespace-pre-line">{section.content}</p>
-            </div>
-          </section>
-        );
-      })}
-
-      {/* Footer */}
-      <div className="pt-8 border-t border-slate-200 flex justify-between items-center text-[10px] text-on-surface-variant uppercase tracking-widest font-medium">
-        <span>Never Sign Blind — Confidential</span>
-        {formattedAnalysisDate && <span>Analyzed {formattedAnalysisDate}</span>}
-        <span>Proprietary AI Analysis</span>
-      </div>
-    </>
-  );
-
   // ---------------------------------------------------------------------------
-  // Page
+  // Page shell
   // ---------------------------------------------------------------------------
 
   return (
-    <div className="max-w-6xl mx-auto py-12 px-12 space-y-12 print:p-0 print:max-w-none">
+    <div className="max-w-5xl mx-auto py-12 px-12 space-y-10 print:p-0 print:max-w-none">
 
-      {/* Page header */}
+      {/* Header toolbar */}
       <div className="flex justify-between items-start print:hidden">
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <div className="flex items-center gap-3">
-            <h2 className="text-4xl font-extrabold text-on-surface tracking-tight leading-none font-headline">
+            <h2 className="text-3xl font-extrabold text-on-surface tracking-tight font-headline">
               Analysis Report
             </h2>
             {reportStatus === 'ready' && (
@@ -386,16 +477,14 @@ export default function ReportPage() {
               </span>
             )}
           </div>
-          <p className="text-on-surface-variant font-medium">
+          <p className="text-on-surface-variant text-sm">
             {projectData?.name
               ? `${projectData.name}${projectData.contractNumber ? ` | ${projectData.contractNumber}` : ''}`
               : 'Change Order Analysis'}
-            {formattedAnalysisDate && (
-              <span className="ml-3 text-slate-400 text-xs">Analyzed {formattedAnalysisDate}</span>
-            )}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+
+        <div className="flex items-center gap-2">
           <button
             onClick={handleNewAnalysis}
             className="flex items-center gap-2 text-xs font-bold text-on-surface-variant hover:text-primary transition-colors px-3 py-2 rounded hover:bg-slate-50"
@@ -410,11 +499,11 @@ export default function ReportPage() {
               <RefreshCw size={14} /> Regenerate
             </button>
           )}
-          {/* PDF export — disabled unless report is ready */}
+          {/* PDF gated on ready */}
           <button
             onClick={handleExportPDF}
             disabled={reportStatus !== 'ready' || exporting}
-            className="flex items-center gap-2 bg-white border border-slate-200 px-5 py-2.5 rounded shadow-sm hover:shadow-md transition-all active:scale-95 text-on-surface disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 bg-white border border-slate-200 px-5 py-2.5 rounded shadow-sm hover:shadow-md transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {exporting
               ? <Loader2 className="text-primary animate-spin" size={18} />
@@ -426,15 +515,17 @@ export default function ReportPage() {
         </div>
       </div>
 
-      {/* Report body */}
+      {/* Memo body */}
       <div
         ref={reportRef}
-        className="space-y-16 bg-white p-12 rounded-3xl shadow-2xl border border-slate-100 relative overflow-hidden print:shadow-none print:border-none print:rounded-none print:p-8 min-h-[400px]"
+        className="bg-white px-14 py-12 rounded-3xl shadow-xl border border-slate-100 print:shadow-none print:border-none print:rounded-none print:px-8 print:py-8 min-h-[500px]"
       >
         {reportStatus === 'idle'       && renderIdle()}
         {reportStatus === 'generating' && renderGenerating()}
         {reportStatus === 'failed'     && renderFailed()}
-        {reportStatus === 'ready' && report && renderReport(report)}
+        {reportStatus === 'ready' && report && (
+          <ReportMemo report={report} analysisDate={analysisDate} />
+        )}
       </div>
     </div>
   );

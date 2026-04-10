@@ -420,18 +420,27 @@ async function extractCitations(
 }
 
 // ---------------------------------------------------------------------------
-// Report generation — structured prose sections from analysis data
+// Report generation — 12-section template per docs/rebuild/final-report-template.md
 // ---------------------------------------------------------------------------
 
 const REPORT_TOOL: Anthropic.Tool = {
   name:        "submit_report",
-  description: "Submit the fully written report sections derived from the contract change analysis.",
+  description: "Submit the completed 12-section Change Order Analysis Report. Write every section in professional, concise, memo-style prose. Never fabricate facts. Use approved fallback language when support is weak.",
   input_schema: {
     type: "object",
     properties: {
-      title: {
-        type:        "string",
-        description: "Report title, e.g. 'Change Order Analysis: [Project Name]'",
+      title:    { type: "string", description: "Change Order Analysis Report — [Project Name]" },
+      metadata: {
+        type: "object",
+        properties: {
+          projectName:     { type: "string" },
+          contractNumber:  { type: "string" },
+          changeRequestId: { type: "string" },
+          ownerClient:     { type: "string" },
+          dateOfAnalysis:  { type: "string" },
+          reportStatus:    { type: "string", enum: ["Draft", "Ready", "Updated", "Superseded"] },
+        },
+        required: ["projectName", "contractNumber", "changeRequestId", "ownerClient", "dateOfAnalysis", "reportStatus"],
       },
       sections: {
         type: "object",
@@ -440,15 +449,50 @@ const REPORT_TOOL: Anthropic.Tool = {
             type: "object",
             properties: {
               heading: { type: "string" },
-              content: { type: "string", description: "2–4 paragraph executive summary written in full professional prose. Max 600 chars." },
+              content: { type: "string", description: "1-2 short paragraphs. State what was requested, scope status, fee/time supportability, and key commercial takeaway. No clause quotes. No filler." },
             },
             required: ["heading", "content"],
           },
-          scopeAndResponsibility: {
+          ownerRequest: {
             type: "object",
             properties: {
               heading: { type: "string" },
-              content: { type: "string", description: "Analysis of whether the change is in scope and who bears responsibility under the contract. Max 500 chars." },
+              content: { type: "string", description: "Short narrative paragraph. State what was requested, what changed from baseline, and whether the request expands/revises/accelerates/defers/resequences the work." },
+            },
+            required: ["heading", "content"],
+          },
+          arcadisPosition: {
+            type: "object",
+            properties: {
+              scopeStatus:    { type: "string", enum: ["In Scope", "Out of Scope", "Partially Out of Scope", "Unclear"] },
+              responsibility: { type: "string" },
+              feePosition:    { type: "string", enum: ["Likely Yes", "Possible", "Unclear", "Likely No"] },
+              timePosition:   { type: "string", enum: ["Likely Yes", "Possible", "Unclear", "Likely No"] },
+              explanation:    { type: "string", description: "One short paragraph explaining the position. Source-grounded." },
+            },
+            required: ["scopeStatus", "responsibility", "feePosition", "timePosition", "explanation"],
+          },
+          keyContractClauses: {
+            type: "array",
+            description: "Most commercially important clauses. Rank by importance, not contract order. 1-4 entries.",
+            items: {
+              type: "object",
+              properties: {
+                reference:    { type: "string", description: "Document / Section / Page" },
+                excerpt:      { type: "string", description: "Short exact or near-exact clause text" },
+                meaning:      { type: "string", description: "Plain-English explanation" },
+                whyItMatters: { type: "string", description: "Commercial relevance — fee and time effects" },
+              },
+              required: ["reference", "excerpt", "meaning", "whyItMatters"],
+            },
+            minItems: 0,
+            maxItems: 4,
+          },
+          application: {
+            type: "object",
+            properties: {
+              heading: { type: "string" },
+              content: { type: "string", description: "1-3 short paragraphs applying contract language to the change request. Connect clauses to the request. Separate contract language from inference." },
             },
             required: ["heading", "content"],
           },
@@ -456,15 +500,34 @@ const REPORT_TOOL: Anthropic.Tool = {
             type: "object",
             properties: {
               heading: { type: "string" },
-              content: { type: "string", description: "Analysis of the financial impact: claimable amounts, likelihood of recovery, and any risk to budget. Max 500 chars." },
+              content: { type: "string", description: "Address Fee and Time in two named subparts. Fee: whether compensation is supportable, likely cost categories, pricing status. Time: whether time is supportable, resequencing/delay, schedule status." },
             },
             required: ["heading", "content"],
           },
           scheduleImpact: {
             type: "object",
             properties: {
+              criticalPathImpact: { type: "string", enum: ["Yes", "Likely", "Possible", "No", "Not Enough Information"] },
+              delayRiskLevel:     { type: "string", enum: ["Low", "Moderate", "High", "Critical"] },
+              explanation:        { type: "string", description: "One explanatory paragraph. Address whether activity is critical/near-critical, float consumption, and whether more evidence is needed." },
+            },
+            required: ["criticalPathImpact", "delayRiskLevel", "explanation"],
+          },
+          noticeRequirements: {
+            type: "object",
+            properties: {
+              noticeRequired: { type: "string", enum: ["Yes", "Likely", "Unclear", "No"] },
+              deadline:       { type: "string", description: "Specific date or 'TBD based on contract notice period' or 'Not specified'" },
+              recipient:      { type: "string" },
+              riskIfMissed:   { type: "string" },
+            },
+            required: ["noticeRequired", "deadline", "recipient", "riskIfMissed"],
+          },
+          riskAndMitigation: {
+            type: "object",
+            properties: {
               heading: { type: "string" },
-              content: { type: "string", description: "Assessment of schedule impact: estimated delays, critical path effects, and notice deadline obligations. Max 500 chars." },
+              content: { type: "string", description: "Short narrative identifying biggest commercial and schedule risks, followed by 3-6 practical mitigation actions. Keep it actionable, not theoretical." },
             },
             required: ["heading", "content"],
           },
@@ -472,31 +535,75 @@ const REPORT_TOOL: Anthropic.Tool = {
             type: "object",
             properties: {
               heading: { type: "string" },
-              content: { type: "string", description: "Concrete recommended course of action for the contractor. Max 500 chars." },
+              content: { type: "string", description: "One short paragraph. If owner accepts: one next-step. If owner says no to time and money: three recommendations." },
+            },
+            required: ["heading", "content"],
+          },
+          draftResponse: {
+            type: "object",
+            properties: {
+              heading: { type: "string" },
+              content: { type: "string", description: "2-4 short paragraphs. Acknowledge request, reference contract review, state position, reserve rights, request direction/change order as appropriate. Professional tone. No aggressive legal theatrics." },
+            },
+            required: ["heading", "content"],
+          },
+          sourceSnapshot: {
+            type: "object",
+            properties: {
+              heading: { type: "string" },
+              content: { type: "string", description: "2-4 short entries listing the most load-bearing sources. Each entry: document name, section/page, short excerpt or paraphrase, why it mattered. Conservative if citations are limited." },
             },
             required: ["heading", "content"],
           },
         },
         required: [
-          "executiveSummary", "scopeAndResponsibility",
-          "commercialAnalysis", "scheduleImpact", "recommendation",
+          "executiveSummary", "ownerRequest", "arcadisPosition", "keyContractClauses",
+          "application", "commercialAnalysis", "scheduleImpact", "noticeRequirements",
+          "riskAndMitigation", "recommendation", "draftResponse", "sourceSnapshot",
         ],
       },
     },
-    required: ["title", "sections"],
+    required: ["title", "metadata", "sections"],
   },
 };
 
-async function generateReport(analysis: any, projectData: any): Promise<any> {
+const REPORT_SYSTEM_PROMPT = `You are a senior construction commercial/change manager writing a formal Change Order Analysis Report.
+
+Template rules (from docs/rebuild/final-report-template.md):
+- Write like a senior commercial manager, not a legal brief and not a dashboard
+- Stay concise. Keep paragraphs short. Avoid repetition
+- Every section must appear. If support is weak, use approved fallback language
+- Approved fallback language: "The current record does not provide enough support to confirm this conclusion." / "Further contract review is required." / "Pricing support is still TBD." / "Schedule support is still TBD." / "No specific deadline was identified in the current record."
+- Separate contract language from inference
+- No fluff, no generic filler, no fake certainty
+- Do not fabricate figures, dates, or clause references
+- keyContractClauses: rank by commercial importance, not contract order; keep excerpts short
+- commercialAnalysis: use Fee / Time subparts explicitly
+- draftResponse: professional, usable by a commercial manager, no aggressive legal theatrics
+- Call submit_report with all 12 sections completed`;
+
+async function generateReport(analysis: any, projectData: any, citations: any[]): Promise<any> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set on the server.");
   const client = new Anthropic({ apiKey });
 
-  const projectLabel = projectData?.name
-    ? `${projectData.name}${projectData.changeRequestId ? ` (${projectData.changeRequestId})` : ""}`
-    : "Unnamed Project";
+  const projectLabel = projectData?.name || "Unnamed Project";
+  const today        = new Date().toISOString().split("T")[0];
 
-  const analysisJson = JSON.stringify({
+  // Build citation context for Source Snapshot
+  const citationContext = citations?.length
+    ? `\n\nExtracted citations (use for Key Contract Clauses and Source Snapshot):\n${JSON.stringify(citations.slice(0, 6), null, 2)}`
+    : "\n\nNo structured citations were extracted. The Source Snapshot should be conservative and clearly limited.";
+
+  const userPrompt = `Write a Change Order Analysis Report for the following project.
+
+Project: ${projectLabel}
+Contract Number: ${projectData?.contractNumber || "Not specified"}
+Change Request: ${projectData?.changeRequestId || "Not specified"}
+Date: ${today}
+
+Analysis data:
+${JSON.stringify({
     executiveConclusion:     analysis.executiveConclusion,
     scopeStatus:             analysis.scopeStatus,
     primaryResponsibility:   analysis.primaryResponsibility,
@@ -508,30 +615,24 @@ async function generateReport(analysis: any, projectData: any): Promise<any> {
     noticeDeadline:          analysis.noticeDeadline,
     strategicRecommendation: analysis.strategicRecommendation,
     keyRisks:                analysis.keyRisks,
-  }, null, 2);
+  }, null, 2)}${citationContext}
+
+Call submit_report with all 12 sections completed.`;
 
   const response = await withRetry(
     () => client.messages.create({
-      model:      "claude-sonnet-4-5",
-      max_tokens: 2048,
-      system: `You are a senior construction contract manager writing a formal change-order analysis report.
-Write in professional, clear prose suitable for sending to legal counsel or a client.
-Do not repeat yourself. Do not use bullet points. Do not hallucinate.
-All content must be derived from the provided analysis data — no invented figures.
-Call submit_report with the completed sections.`,
+      model:       "claude-sonnet-4-5",
+      max_tokens:  4096,
+      system:      REPORT_SYSTEM_PROMPT,
       tools:       [REPORT_TOOL],
       tool_choice: { type: "tool", name: "submit_report" },
-      messages: [{
-        role:    "user",
-        content: `Write a formal analysis report for project: ${projectLabel}\n\nAnalysis data:\n${analysisJson}`,
-      }],
+      messages:    [{ role: "user", content: userPrompt }],
     }),
     "report generation"
   );
 
   const toolUse = response.content.find((b) => b.type === "tool_use") as Anthropic.ToolUseBlock | undefined;
   if (!toolUse) throw new Error("Claude did not call the submit_report tool.");
-
   return toolUse.input;
 }
 
@@ -655,7 +756,7 @@ async function startServer() {
         return;
       }
       console.log("Generating report...");
-      const raw = await generateReport(store.analysis, store.projectData ?? {});
+      const raw = await generateReport(store.analysis, store.projectData ?? {}, (store as any).citations ?? []);
       const now = new Date().toISOString();
       const report = {
         id:        `report-${Date.now()}`,

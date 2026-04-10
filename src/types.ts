@@ -66,22 +66,73 @@ export interface IngestionStore {
 }
 
 // ---------------------------------------------------------------------------
-// Report model
+// Report model — matches docs/rebuild/final-report-template.md
 // ---------------------------------------------------------------------------
 
 export type ReportStatus = 'idle' | 'generating' | 'ready' | 'failed';
+
+export type ReportStatusValue = 'Draft' | 'Ready' | 'Updated' | 'Superseded';
 
 export interface ReportSection {
   heading: string;
   content: string;
 }
 
+// Structured decision block for Section 3 (Arcadis Position)
+export interface ArcadisPosition {
+  scopeStatus:     string;  // In Scope | Out of Scope | Partially Out of Scope | Unclear
+  responsibility:  string;
+  feePosition:     string;  // Likely Yes | Possible | Unclear | Likely No
+  timePosition:    string;  // Likely Yes | Possible | Unclear | Likely No
+  explanation:     string;
+}
+
+// Structured entry for Section 4 (Key Contract Clauses)
+export interface ClauseEntry {
+  reference: string;   // Document / Section / Page
+  excerpt:   string;   // Clause text or excerpt
+  meaning:   string;   // Plain-English explanation
+  whyItMatters: string;
+}
+
+// Structured decision block for Section 7 (Schedule Impact)
+export interface ScheduleImpact {
+  criticalPathImpact: string;  // Yes | Likely | Possible | No | Not Enough Information
+  delayRiskLevel:     string;  // Low | Moderate | High | Critical
+  explanation:        string;
+}
+
+// Structured decision block for Section 8 (Notice)
+export interface NoticeRequirements {
+  noticeRequired: string;   // Yes | Likely | Unclear | No
+  deadline:       string;
+  recipient:      string;
+  riskIfMissed:   string;
+}
+
+// Full 12-section report per final-report-template.md
 export interface ReportSections {
-  executiveSummary:       ReportSection;
-  scopeAndResponsibility: ReportSection;
-  commercialAnalysis:     ReportSection;
-  scheduleImpact:         ReportSection;
-  recommendation:         ReportSection;
+  executiveSummary:          ReportSection;
+  ownerRequest:              ReportSection;
+  arcadisPosition:           ArcadisPosition;
+  keyContractClauses:        ClauseEntry[];
+  application:               ReportSection;
+  commercialAnalysis:        ReportSection;
+  scheduleImpact:            ScheduleImpact;
+  noticeRequirements:        NoticeRequirements;
+  riskAndMitigation:         ReportSection;
+  recommendation:            ReportSection;
+  draftResponse:             ReportSection;
+  sourceSnapshot:            ReportSection;
+}
+
+export interface ReportMetadata {
+  projectName:       string;
+  contractNumber:    string;
+  changeRequestId:   string;
+  ownerClient:       string;
+  dateOfAnalysis:    string;
+  reportStatus:      ReportStatusValue;
 }
 
 export interface Report {
@@ -90,5 +141,6 @@ export interface Report {
   createdAt: string;
   updatedAt: string;
   title:     string;
+  metadata:  ReportMetadata;
   sections:  ReportSections;
 }
