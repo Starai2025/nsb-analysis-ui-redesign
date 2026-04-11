@@ -48,8 +48,13 @@ export default function DecisionSummaryPage() {
           setClaimableAmount(data.analysis.claimableAmount ?? '');
           setExtraDays(data.analysis.extraDays ?? '');
           setSecondaryResp(data.analysis.secondaryResponsibility ?? '');
-          // Backfill IndexedDB from server
-          await saveCurrentThread({ analysis: data.analysis, projectData: data.projectData ?? { name: '', contractNumber: '', changeRequestId: '' } });
+          // Backfill IndexedDB from server — spread existing to preserve contract/citations/report
+          const existing = await loadCurrentThread();
+          await saveCurrentThread({
+            ...(existing ?? {}),
+            analysis:    data.analysis,
+            projectData: data.projectData ?? { name: '', contractNumber: '', changeRequestId: '' },
+          } as any);
         }
       } catch (err) {
         console.error('Failed to load analysis:', err);
@@ -72,11 +77,13 @@ export default function DecisionSummaryPage() {
         extraDays,
         secondaryResponsibility: secondaryResp,
       };
-      // Save edits to IndexedDB
+      // Save edits to IndexedDB — spread existing thread to preserve contract/citations/report/draft
+      const existingThread = await loadCurrentThread();
       await saveCurrentThread({
+        ...(existingThread ?? {}),
         analysis:    updatedAnalysis,
         projectData: projectData ?? { name: '', contractNumber: '', changeRequestId: '' },
-      });
+      } as any);
       // Also sync to server as backup
       await fetch('/api/save-analysis', {
         method:  'POST',

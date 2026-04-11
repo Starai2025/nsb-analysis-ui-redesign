@@ -121,20 +121,36 @@ export default function SourcesPage() {
   const [loading,   setLoading]   = useState(true);
   const [search,    setSearch]    = useState('');
   const [zoom,      setZoom]      = useState(100);
+  // Precise load state for accurate empty-state messaging
+  const [noThread,          setNoThread]          = useState(false);
+  const [contractMissing,   setContractMissing]   = useState(false);
+  const [extractionFailed,  setExtractionFailed]  = useState(false);
 
   useEffect(() => {
     const load = async () => {
       try {
         const thread = await loadCurrentThread();
-        if (thread?.contract?.pages?.length) {
-          setPages(thread.contract.pages);
-          setDocName(thread.contract.name);
+        if (!thread?.analysis) {
+          setNoThread(true);
+          return;
         }
+        if (!thread.contract) {
+          setContractMissing(true);
+          return;
+        }
+        if (!thread.contract.pages?.length) {
+          setDocName(thread.contract.name ?? '');
+          setExtractionFailed(true);
+          return;
+        }
+        setPages(thread.contract.pages);
+        setDocName(thread.contract.name);
         if (thread?.citations?.length) {
           setCitations(thread.citations as Citation[]);
         }
       } catch (err) {
         console.error('Failed to load sources:', err);
+        setNoThread(true);
       } finally {
         setLoading(false);
       }
@@ -181,16 +197,38 @@ export default function SourcesPage() {
   }
 
   // ---------------------------------------------------------------------------
-  // No analysis yet
+  // Precise empty states — distinguish no thread vs lost evidence vs extraction failure
   // ---------------------------------------------------------------------------
-  if (pages.length === 0 && citations.length === 0) {
+  if (noThread || contractMissing || extractionFailed || (pages.length === 0 && citations.length === 0)) {
+    let icon   = <FileText size={48} className="text-slate-300" />;
+    let title  = 'No document loaded';
+    let detail = 'Upload and analyze a contract to view the document text and AI-extracted citations here.';
+    let hint: string | null = null;
+
+    if (contractMissing) {
+      icon   = <AlertTriangle size={48} className="text-amber-400" />;
+      title  = 'Contract data missing from thread';
+      detail = 'The contract pages were not saved in this analysis thread. This can happen if the page was saved without the full evidence.';
+      hint   = 'Return to Intake and run a new analysis to restore the document viewer.';
+    } else if (extractionFailed) {
+      icon   = <AlertTriangle size={48} className="text-amber-400" />;
+      title  = docName
+        ? `No text extracted from "${docName}"`
+        : 'Document text extraction returned zero pages';
+      detail = 'This usually means the uploaded PDF is scanned or image-only. PDF text must be selectable for extraction to work.';
+      hint   = 'Try re-uploading a text-based PDF, or export your scanned PDF through an OCR tool first.';
+    } else if (noThread) {
+      icon   = <FileText size={48} className="text-slate-300" />;
+      title  = 'No analysis found';
+      detail = 'Upload and analyze a contract on the Intake page to view the document text here.';
+    }
+
     return (
       <div className="flex flex-col items-center justify-center h-[calc(100vh-4rem)] gap-4 text-center px-8">
-        <FileText size={48} className="text-slate-300" />
-        <h2 className="text-xl font-bold text-on-surface">No document loaded</h2>
-        <p className="text-on-surface-variant max-w-sm text-sm">
-          Upload and analyze a contract to view the document text and AI-extracted citations here.
-        </p>
+        {icon}
+        <h2 className="text-xl font-bold text-on-surface">{title}</h2>
+        <p className="text-on-surface-variant max-w-sm text-sm">{detail}</p>
+        {hint && <p className="text-slate-400 max-w-sm text-xs italic">{hint}</p>}
         <button
           onClick={() => navigate('/intake')}
           className="mt-2 bg-primary text-white px-6 py-2.5 rounded-lg font-bold hover:bg-primary-dim transition-all"
@@ -280,8 +318,8 @@ export default function SourcesPage() {
               <div className="flex flex-col items-center justify-center h-full gap-3 text-center">
                 <FileText size={40} className="text-slate-300" />
                 <p className="text-sm text-slate-500 font-medium">
-                  Document text could not be extracted.<br />
-                  This may be a scanned or image-only PDF.
+                  No text was extracted from this page.<br />
+                  The PDF may be scanned or image-only on this page.
                 </p>
               </div>
             ) : (
