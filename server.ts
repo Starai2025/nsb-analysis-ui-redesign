@@ -809,10 +809,13 @@ async function startServer() {
         return;
       }
 
-      // Pull chunks from server store (populated on /api/analyze)
-      const contractChunks      = (store.contract      as any)?.chunks ?? [] as any[];
-      const correspondenceChunks = (store.correspondence as any)?.chunks ?? [] as any[];
-      const allChunks: any[]    = [...contractChunks, ...correspondenceChunks];
+      // Client sends chunks from IndexedDB (server store only has metadata, no chunks)
+      const { chunks: bodyChunks } = req.body as { chunks?: any[] };
+      const contractChunks       = bodyChunks ?? (store.contract      as any)?.chunks ?? [];
+      const correspondenceChunks = (store.correspondence as any)?.chunks ?? [];
+      const allChunks: any[]     = bodyChunks
+        ? bodyChunks
+        : [...contractChunks, ...correspondenceChunks];
 
       // Simple keyword-overlap relevance scorer
       const questionWords = question.toLowerCase().split(/\W+/).filter(w => w.length > 2);

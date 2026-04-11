@@ -12,6 +12,14 @@ import { Citation, ExtractedPage } from '../types';
 function SourcesChat({ contractName }: { contractName: string }) {
   const [input,   setInput]   = useState('');
   const [answer,  setAnswer]  = useState('');
+  const [chunks,  setChunks]  = useState<any[]>([]);
+
+  useEffect(() => {
+    loadCurrentThread().then(thread => {
+      const c = [...(thread?.contract?.chunks ?? []), ...(thread?.correspondence?.chunks ?? [])];
+      setChunks(c);
+    });
+  }, []);
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState('');
 
@@ -25,7 +33,7 @@ function SourcesChat({ contractName }: { contractName: string }) {
       const res  = await fetch('/api/chat', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ question }),
+        body:    JSON.stringify({ question, chunks }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Chat failed.');

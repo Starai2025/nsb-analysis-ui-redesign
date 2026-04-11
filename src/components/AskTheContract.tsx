@@ -32,6 +32,7 @@ export default function AskTheContract() {
   const [loading,     setLoading]     = useState(false);
   const [hasAnalysis, setHasAnalysis] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [chunks,      setChunks]      = useState<any[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -40,6 +41,10 @@ export default function AskTheContract() {
         setHasAnalysis(true);
         setSuggestions(buildSuggestions(thread.analysis));
       }
+      // Combine contract + correspondence chunks for RAG
+      const contractChunks      = thread?.contract?.chunks      ?? [];
+      const correspondenceChunks = thread?.correspondence?.chunks ?? [];
+      setChunks([...contractChunks, ...correspondenceChunks]);
     });
   }, []);
 
@@ -65,7 +70,7 @@ export default function AskTheContract() {
       const res  = await fetch('/api/chat', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ question, history }),
+        body:    JSON.stringify({ question, history, chunks }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Chat failed.');
