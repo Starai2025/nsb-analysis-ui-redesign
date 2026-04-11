@@ -786,6 +786,91 @@ async function startServer() {
     res.json(store);
   });
 
+
+  // ── Ask the Contract — RAG chat ───────────────────────────────────────────
+  app.post("/api/chat", express.json({ limit: "512kb" }), async (req, res) => {
+    try {
+      const { question, history } = req.body as {
+        question: string;
+        history?: { role: "user" | "assistant"; text: string }[];
+      };
+
+      if (!question?.trim()) {
+        res.status(400).json({ error: "question is required." });
+        return;
+      }
+
+      const apiKey = process.env.ANTHROPIC_API_KEY;
+      if (!apiKey) {
+        res.status(500).json({ error: "ANTHROPIC_API_KEY is not configured." });
+        return;
+      }
+
+      // Pull chunks from server store (populated on /api/analyze)
+      const contractChunks      = (store.contract      as any)?.chunks ?? [] as any[];
+      const correspondenceChunks = (store.correspondence as any)?.chunks ?? [] as any[];
+      const allChunks: any[]    = [...contractChunks, ...correspondenceChunks];
+
+      // Simple keyword-overlap relevance scorer
+      const questionWords = question.toLowerCase().split(/\W+/).filter(w => w.length > 2);
+      const scored = allChunks.map((chunk: any) => {
+        const text   = (chunk.text ?? "").toLowerCase();
+        const hits   = questionWords.filter(w => text.includes(w)).length;
+        return { chunk, score: hits };
+      });
+      scored.sort((a, b) => b.score - a.score);
+      const topChunks = scored.slice(0, 5).filter(s => s.score > 0).map(s => s.chunk);
+
+      // If no chunks matched, still answer but note limited context
+      const contextText = topChunks.length
+        ? topChunks.map((c: any) => `[Page ${c.pageNumber ?? "?"}]\n${c.text}`).join("\n\n---\n\n")
+        : "No contract text is available. Answer as best you can from general knowledge.";
+
+      // Build message history for conversational context (last 6 turns)
+      const recentHistory = (history ?? []).slice(-6);
+      const historyMessages: Anthropic.MessageParam[] = recentHistory.map(m => ({
+        role:    m.role === "user" ? "user" : "assistant",
+        content: m.text,
+      }));
+
+      const client = new Anthropic({ apiKey });
+      const response = await withRetry(
+        () => client.messages.create({
+          model:      "claude-sonnet-4-5",
+          max_tokens: 512,
+          system: `You are a construction contract analyst answering questions about an uploaded contract and correspondence.
+Answer concisely based on the provided contract excerpts. Cite page numbers when available (e.g., "per Page 3").
+If the answer is not in the excerpts, say so clearly — do not fabricate.
+Keep answers under 150 words.`,
+          messages: [
+            ...historyMessages,
+            {
+              role:    "user",
+              content: `Contract excerpts:\n\n${contextText}\n\nQuestion: ${question}`,
+            },
+          ],
+        }),
+        "chat"
+      );
+
+      const textBlock = response.content.find(b => b.type === "text") as Anthropic.TextBlock | undefined;
+      const answer    = textBlock?.text ?? "I was unable to generate a response.";
+
+      const sourceChunks = topChunks.map((c: any) => ({
+        id:         c.id,
+        pageNumber: c.pageNumber,
+        text:       c.text?.slice(0, 200) + (c.text?.length > 200 ? "…" : ""),
+        sourceId:   c.sourceId,
+      }));
+
+      res.json({ answer, sourceChunks });
+    } catch (err: any) {
+      const message = err instanceof Error ? err.message : "Chat failed.";
+      console.error("Chat error:", message);
+      res.status(500).json({ error: message });
+    }
+  });
+
   // ── Vite / static ──────────────────────────────────────────────────────────
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({ server: { middlewareMode: true }, appType: "spa" });

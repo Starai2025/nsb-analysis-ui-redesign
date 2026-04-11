@@ -3,10 +3,71 @@ import { useNavigate } from 'react-router-dom';
 import {
   Search, Download, ZoomIn, ZoomOut, FileText,
   AlertTriangle, Info, ArrowRight, List, Bookmark,
-  Scale, ShieldCheck, Loader2
+  Scale, Loader2, Send
 } from 'lucide-react';
 import { loadCurrentThread } from '../lib/db';
 import { Citation, ExtractedPage } from '../types';
+
+// Inline chat for the Sources page bottom panel
+function SourcesChat({ contractName }: { contractName: string }) {
+  const [input,   setInput]   = useState('');
+  const [answer,  setAnswer]  = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error,   setError]   = useState('');
+
+  const handleAsk = async () => {
+    const question = input.trim();
+    if (!question || loading) return;
+    setLoading(true);
+    setAnswer('');
+    setError('');
+    try {
+      const res  = await fetch('/api/chat', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ question }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Chat failed.');
+      setAnswer(data.answer);
+    } catch (err: any) {
+      setError(err.message ?? 'Something went wrong.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="relative">
+        <input
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && handleAsk()}
+          disabled={loading}
+          className="w-full bg-white border border-slate-200 rounded-xl pl-4 pr-12 py-3 text-sm focus:ring-2 focus:ring-primary focus:border-transparent shadow-sm outline-none placeholder:text-slate-400 disabled:opacity-50"
+          placeholder={contractName ? `Ask about ${contractName}…` : 'Ask a question about these clauses...'}
+          type="text"
+        />
+        <button
+          onClick={handleAsk}
+          disabled={!input.trim() || loading}
+          className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-primary text-white rounded-lg flex items-center justify-center hover:bg-primary-dim transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {loading ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+        </button>
+      </div>
+      {answer && (
+        <div className="bg-white border border-slate-200 rounded-xl p-3 text-xs text-on-surface leading-relaxed">
+          {answer}
+        </div>
+      )}
+      {error && (
+        <p className="text-xs text-rose-600">{error}</p>
+      )}
+    </div>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -381,28 +442,14 @@ export default function SourcesPage() {
           })}
         </div>
 
-        {/* Ask the Contract footer (wired in Phase 7) */}
+        {/* Ask the Contract footer */}
         <div className="p-6 bg-slate-50 border-t border-slate-200">
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-2">
               <Info className="text-primary" size={14} />
               <span className="text-[10px] font-bold text-primary uppercase tracking-widest">Ask the Contract</span>
-              <span className="text-[10px] text-slate-400 ml-auto">Coming in Phase 7</span>
             </div>
-            <div className="relative">
-              <input
-                className="w-full bg-white border border-slate-200 rounded-xl pl-4 pr-12 py-3 text-sm focus:ring-2 focus:ring-primary focus:border-transparent shadow-sm outline-none placeholder:text-slate-400"
-                placeholder="Ask a question about these clauses..."
-                type="text"
-                disabled
-              />
-              <button
-                disabled
-                className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-slate-200 text-slate-400 rounded-lg flex items-center justify-center cursor-not-allowed"
-              >
-                <ArrowRight size={16} />
-              </button>
-            </div>
+            <SourcesChat contractName={docName} />
           </div>
         </div>
       </section>
