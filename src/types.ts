@@ -145,3 +145,30 @@ export interface Report {
   metadata:  ReportMetadata;
   sections:  ReportSections;
 }
+
+// ---------------------------------------------------------------------------
+// Draft model — matches Phase 8 DraftResponsePage
+// ---------------------------------------------------------------------------
+
+export type DraftStatus = 'idle' | 'generating' | 'ready' | 'failed';
+
+export interface DraftStrategy {
+  whatChanged:         string;
+  arcadisPosition:     string;
+  criticalPathImpact:  string;   // Yes | Likely | Possible | No
+  scheduleDelayRisk:   string;   // Low | Moderate | High | Critical
+  mitigationSteps:     string[];
+  alternativePaths:    string[];
+  recommendedPath:     string;
+  commercialContext:   string;
+  strategicReminders:  string[];
+}
+
+export interface Draft {
+  id:        string;
+  threadId:  string;
+  createdAt: string;
+  updatedAt: string;
+  letter:    string;
+  strategy:  DraftStrategy;
+}

@@ -640,6 +640,117 @@ Call submit_report with all 12 sections completed.`;
 }
 
 // ---------------------------------------------------------------------------
+// Draft generation — letter + strategy from analysis + report + citations
+// ---------------------------------------------------------------------------
+
+const DRAFT_TOOL: Anthropic.Tool = {
+  name:        "submit_draft",
+  description: "Submit the client-facing draft response letter and internal claim strategy.",
+  input_schema: {
+    type: "object",
+    properties: {
+      letter: {
+        type:        "string",
+        description: "Full client-facing response letter. 3-5 short paragraphs. Professional tone. Acknowledge request, reference contract review, state position, reserve rights, request direction. No fake statutory language. No hardcoded names.",
+      },
+      strategy: {
+        type: "object",
+        properties: {
+          whatChanged:        { type: "string", description: "What the owner requested and how it differs from the baseline. 2-3 sentences." },
+          arcadisPosition:    { type: "string", description: "Current commercial position — scope status, entitlement, and what Arcadis is doing now. 2-3 sentences." },
+          criticalPathImpact: { type: "string", enum: ["Yes", "Likely", "Possible", "No", "Not Enough Information"] },
+          scheduleDelayRisk:  { type: "string", enum: ["Low", "Moderate", "High", "Critical"] },
+          mitigationSteps:    { type: "array", items: { type: "string" }, minItems: 3, maxItems: 6, description: "Practical mitigation actions. Each step is a single actionable sentence." },
+          alternativePaths:   { type: "array", items: { type: "string" }, minItems: 2, maxItems: 4, description: "Alternative resolution paths if primary approach fails." },
+          recommendedPath:    { type: "string", description: "Single paragraph: the recommended course of action." },
+          commercialContext:  { type: "string", description: "Short paragraph on the current claim status and entitlement support level. Conservative and source-grounded." },
+          strategicReminders: { type: "array", items: { type: "string" }, minItems: 2, maxItems: 5, description: "Short reminders for the commercial manager handling this change." },
+        },
+        required: ["whatChanged", "arcadisPosition", "criticalPathImpact", "scheduleDelayRisk",
+                   "mitigationSteps", "alternativePaths", "recommendedPath", "commercialContext", "strategicReminders"],
+      },
+    },
+    required: ["letter", "strategy"],
+  },
+};
+
+async function generateDraft(
+  analysis:    any,
+  projectData: any,
+  citations:   any[],
+  report?:     any,
+): Promise<any> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set on the server.");
+  const client = new Anthropic({ apiKey });
+
+  const project  = projectData?.name       || "the project";
+  const contract = projectData?.contractNumber || "the contract";
+  const crId     = projectData?.changeRequestId || "";
+  const today    = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+
+  // Build context from report sections if available
+  const reportContext = report?.sections
+    ? `\n\nExisting report context (use to stay consistent):\n` +
+      `- Arcadis Position: Scope ${report.sections.arcadisPosition?.scopeStatus ?? "unknown"}, ` +
+      `Fee ${report.sections.arcadisPosition?.feePosition ?? "unknown"}, ` +
+      `Time ${report.sections.arcadisPosition?.timePosition ?? "unknown"}\n` +
+      `- Recommendation: ${report.sections.recommendation?.content?.slice(0, 200) ?? "N/A"}\n` +
+      `- Risk & Mitigation: ${report.sections.riskAndMitigation?.content?.slice(0, 200) ?? "N/A"}`
+    : "";
+
+  const citationContext = citations?.length
+    ? `\n\nKey contract citations:\n${JSON.stringify(citations.slice(0, 4), null, 2)}`
+    : "";
+
+  const userPrompt = `Generate a draft response letter and internal claim strategy for the following change order situation.
+
+Project: ${project}
+Contract: ${contract}${crId ? ` | Change Request: ${crId}` : ""}
+Date: ${today}
+
+Analysis:
+${JSON.stringify({
+    executiveConclusion:     analysis.executiveConclusion,
+    scopeStatus:             analysis.scopeStatus,
+    primaryResponsibility:   analysis.primaryResponsibility,
+    extraMoneyLikely:        analysis.extraMoneyLikely,
+    extraTimeLikely:         analysis.extraTimeLikely,
+    claimableAmount:         analysis.claimableAmount,
+    extraDays:               analysis.extraDays,
+    noticeDeadline:          analysis.noticeDeadline,
+    strategicRecommendation: analysis.strategicRecommendation,
+    keyRisks:                analysis.keyRisks,
+  }, null, 2)}${reportContext}${citationContext}
+
+Rules:
+- Letter: professional tone, no aggressive legal theatrics, usable by a commercial manager
+- Do not invent law, deadlines, or entitlement certainty not supported by the analysis
+- Do not use placeholder names like "Ms. Richardson" or "BuildCorp"
+- Reference the project name and contract number where appropriate
+- Strategy: practical and actionable, not theoretical
+- All outputs must be conservative and source-grounded
+
+Call submit_draft with the completed letter and strategy.`;
+
+  const response = await withRetry(
+    () => client.messages.create({
+      model:       "claude-sonnet-4-5",
+      max_tokens:  3000,
+      system:      "You are a senior construction commercial manager drafting a formal change order response and internal strategy. Stay source-grounded. Do not fabricate facts. Call submit_draft.",
+      tools:       [DRAFT_TOOL],
+      tool_choice: { type: "tool", name: "submit_draft" },
+      messages:    [{ role: "user", content: userPrompt }],
+    }),
+    "draft generation"
+  );
+
+  const toolUse = response.content.find(b => b.type === "tool_use") as Anthropic.ToolUseBlock | undefined;
+  if (!toolUse) throw new Error("Claude did not call submit_draft.");
+  return toolUse.input;
+}
+
+// ---------------------------------------------------------------------------
 // Express server
 // ---------------------------------------------------------------------------
 
@@ -784,7 +895,39 @@ async function startServer() {
     }
   });
 
-  // ── Read backup store ──────────────────────────────────────────────────────
+  // ── Generate draft response + claim strategy ─────────────────────────────
+  app.post("/api/generate-draft", express.json({ limit: "2mb" }), async (req, res) => {
+    try {
+      const analysis    = req.body?.analysis    ?? store.analysis;
+      const projectData = req.body?.projectData ?? store.projectData ?? {};
+      const citations   = req.body?.citations   ?? store.citations   ?? [];
+      const report      = req.body?.report      ?? null;
+
+      if (!analysis) {
+        res.status(400).json({ error: "No analysis found. Run an analysis first." });
+        return;
+      }
+      console.log("Generating draft...");
+      const raw = await generateDraft(analysis, projectData, citations, report);
+      const now = new Date().toISOString();
+      const draft = {
+        id:        `draft-${Date.now()}`,
+        threadId:  "current",
+        createdAt: now,
+        updatedAt: now,
+        letter:    raw.letter,
+        strategy:  raw.strategy,
+      };
+      console.log("Draft generated.");
+      res.json({ success: true, draft });
+    } catch (err: any) {
+      const message = err instanceof Error ? err.message : "Draft generation failed.";
+      console.error("Draft error:", message);
+      res.status(500).json({ error: message });
+    }
+  });
+
+    // ── Read backup store ──────────────────────────────────────────────────────
   app.get("/api/store", (_req, res) => {
     res.json(store);
   });

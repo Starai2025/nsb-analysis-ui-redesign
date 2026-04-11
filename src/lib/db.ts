@@ -9,7 +9,7 @@
  * Phase 9 will add multi-thread support without schema migration.
  */
 
-import { IngestionStore, AnalysisResult, ProjectData, Report } from '../types';
+import { IngestionStore, AnalysisResult, ProjectData, Report, Draft } from '../types';
 
 const DB_NAME    = 'nsb-db';
 const DB_VERSION = 1;
@@ -27,7 +27,7 @@ export interface NSBThread {
   contract?:       IngestionStore['contract'];
   correspondence?: IngestionStore['correspondence'];
   citations?:      any[];
-  draft?:          any;
+  draft?:          Draft;
   chatHistory?:    any[];
   report?:         Report;
 }
@@ -93,6 +93,7 @@ export async function saveCurrentThread(
     citations:      data.citations,
     draft:          data.draft,
     chatHistory:    data.chatHistory,
+    report:         data.report,
   };
 
   return new Promise((resolve, reject) => {
