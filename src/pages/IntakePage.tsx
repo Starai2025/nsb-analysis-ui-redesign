@@ -129,7 +129,9 @@ export default function IntakePage() {
           <div className="text-sm">
             <p className="font-bold mb-1">Analysis Error</p>
             <p className="font-medium">{error}</p>
-            <p className="mt-2 text-xs opacity-70">Ensure your server is running with ANTHROPIC_API_KEY set in your .env file.</p>
+            {(error.toLowerCase().includes('api key') || error.toLowerCase().includes('connect') || error.toLowerCase().includes('network') || error.toLowerCase().includes('econnrefused')) && (
+              <p className="mt-2 text-xs opacity-70">Ensure your server is running with ANTHROPIC_API_KEY set in your .env file.</p>
+            )}
           </div>
         </motion.div>
       )}

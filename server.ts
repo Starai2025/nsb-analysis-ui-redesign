@@ -220,16 +220,19 @@ function validateAnalysis(analysis: any): void {
     throw new Error(`Invalid scopeStatus: "${analysis.scopeStatus}". Must be "In Scope" or "Out of Scope".`);
   if (!analysis.primaryResponsibility?.trim())
     throw new Error("Analysis missing primaryResponsibility.");
-  if (!Array.isArray(analysis.keyRisks) || analysis.keyRisks.length === 0)
-    throw new Error("Analysis must include at least one key risk.");
-  for (const risk of analysis.keyRisks) {
-    if (!risk.title?.trim() || !risk.description?.trim())
-      throw new Error("Each key risk must have a non-empty title and description.");
+  // Resilient keyRisks handling — image-only PDFs may yield empty results
+  if (!Array.isArray(analysis.keyRisks) || analysis.keyRisks.length === 0) {
+    console.warn("keyRisks empty — adding fallback risk");
+    analysis.keyRisks = [{ title: "Manual Review Required", description: "Insufficient contract text was extracted. Re-upload a text-based PDF for full risk analysis." }];
+  }
+  analysis.keyRisks = analysis.keyRisks.filter((r: any) => r?.title?.trim() && r?.description?.trim());
+  if (analysis.keyRisks.length === 0) {
+    analysis.keyRisks = [{ title: "Manual Review Required", description: "Risk details could not be extracted from the provided documents." }];
   }
   if (!analysis.claimableAmount?.trim())
-    throw new Error("Analysis missing claimableAmount.");
+    analysis.claimableAmount = "Not specified";
   if (!analysis.extraDays?.trim())
-    throw new Error("Analysis missing extraDays.");
+    analysis.extraDays = "Not specified";
   // noticeDeadline: if not "Not specified", must parse as a valid date
   if (analysis.noticeDeadline && analysis.noticeDeadline !== "Not specified") {
     const d = new Date(analysis.noticeDeadline);
