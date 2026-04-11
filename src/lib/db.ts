@@ -30,6 +30,7 @@ export interface NSBThread {
   draft?:          Draft;
   chatHistory?:    any[];
   report?:         Report;
+  contractBlob?:   ArrayBuffer;  // original PDF binary for in-browser viewing
 }
 
 // ---------------------------------------------------------------------------
@@ -94,6 +95,7 @@ export async function saveCurrentThread(
     draft:          data.draft,
     chatHistory:    data.chatHistory,
     report:         data.report,
+    contractBlob:   data.contractBlob,
   };
 
   return new Promise((resolve, reject) => {

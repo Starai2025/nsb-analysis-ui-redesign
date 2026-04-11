@@ -83,13 +83,19 @@ export default function IntakePage() {
 
       setAnalysisStatus('Saving results to local storage...');
 
-      // Persist full ingested documents + analysis + citations to IndexedDB
+      // Read PDF blob for in-browser viewing (PDF only; DOCX has no blob viewer)
+      const contractBuffer = contractFile.type === 'application/pdf'
+        ? await contractFile.arrayBuffer()
+        : undefined;
+
+      // Persist full ingested documents + analysis + citations + PDF blob to IndexedDB
       await saveCurrentThread({
         analysis:       data.analysis,
         projectData:    data.projectData,
         contract:       data.contract,
         correspondence: data.correspondence,
         citations:      data.citations ?? [],
+        contractBlob:   contractBuffer,
       });
 
       stopTimer();
