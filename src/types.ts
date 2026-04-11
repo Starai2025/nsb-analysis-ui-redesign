@@ -61,8 +61,9 @@ export interface ExtractedDocument {
 export interface IngestionStore {
   contract?: ExtractedDocument;
   correspondence?: ExtractedDocument;
-  analysis?: any;
+  analysis?: AnalysisResult;
   projectData?: ProjectData;
+  citations?: Citation[];
 }
 
 // ---------------------------------------------------------------------------

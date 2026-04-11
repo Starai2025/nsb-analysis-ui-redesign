@@ -301,7 +301,7 @@ async function runAnalysis(
   ];
 
   const controller = new AbortController();
-  const timeout    = setTimeout(() => controller.abort(), 120_000);
+  const timeout    = setTimeout(() => controller.abort(), 180_000);  // 3 min for large reports
 
   try {
     const response = await withRetry(
@@ -708,7 +708,7 @@ async function startServer() {
         // Step 4: Persist backup (metadata only)
         const contractDocMeta = { ...contractDoc,       pages: undefined, chunks: undefined };
         const corrDocMeta     = { ...correspondenceDoc, pages: undefined, chunks: undefined };
-        store = { analysis, projectData, contract: contractDocMeta, correspondence: corrDocMeta };
+        store = { analysis, projectData, contract: contractDocMeta, correspondence: corrDocMeta, citations };
         await saveStore(store);
 
         console.log("Analysis complete.\n");
@@ -749,14 +749,19 @@ async function startServer() {
   });
 
   // ── Generate formal report from stored analysis ────────────────────────────
-  app.post("/api/generate-report", express.json({ limit: "1mb" }), async (req, res) => {
+  app.post("/api/generate-report", express.json({ limit: "2mb" }), async (req, res) => {
     try {
-      if (!store.analysis) {
+      // Use body values if provided (sent by client from IndexedDB), fall back to server store
+      const analysis    = req.body?.analysis    ?? store.analysis;
+      const projectData = req.body?.projectData ?? store.projectData ?? {};
+      const citations   = req.body?.citations   ?? store.citations   ?? [];
+
+      if (!analysis) {
         res.status(400).json({ error: "No analysis found. Run an analysis first." });
         return;
       }
       console.log("Generating report...");
-      const raw = await generateReport(store.analysis, store.projectData ?? {}, (store as any).citations ?? []);
+      const raw = await generateReport(analysis, projectData, citations);
       const now = new Date().toISOString();
       const report = {
         id:        `report-${Date.now()}`,

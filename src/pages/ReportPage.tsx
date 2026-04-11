@@ -362,15 +362,28 @@ export default function ReportPage() {
     setReportStatus('generating');
     setErrorMsg('');
     try {
-      const res  = await fetch('/api/generate-report', { method: 'POST' });
+      const thread = await loadCurrentThread();
+      const res  = await fetch('/api/generate-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          analysis:    thread?.analysis    ?? analysis,
+          projectData: thread?.projectData ?? projectData,
+          citations:   thread?.citations   ?? [],
+        }),
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Report generation failed.');
       const newReport: Report = data.report;
+
+      // Load full thread first so we preserve contract, correspondence, citations etc.
+      const existing = await loadCurrentThread();
       await saveCurrentThread({
+        ...(existing ?? {}),
         analysis:    analysis!,
         projectData: projectData ?? { name: '', contractNumber: '', changeRequestId: '' },
         report:      newReport,
-      });
+      } as any);
       setReport(newReport);
       setReportStatus('ready');
     } catch (err) {
