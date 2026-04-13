@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { FileUp, Mail, ArrowRight, CheckCircle2, Info, Loader2, AlertCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 import { DocumentType } from '../types';
-import { saveCurrentThread } from '../lib/db';
+import { saveCurrentThread, clearCurrentThread } from '../lib/db';
 
 export default function IntakePage() {
   const navigate = useNavigate();
@@ -87,6 +87,9 @@ export default function IntakePage() {
       const contractBuffer = contractFile.type === 'application/pdf'
         ? await contractFile.arrayBuffer()
         : undefined;
+
+      // Clear any previous thread so stale report/draft/citations never bleed into this run
+      await clearCurrentThread();
 
       // Persist full ingested documents + analysis + citations + PDF blob to IndexedDB
       await saveCurrentThread({
