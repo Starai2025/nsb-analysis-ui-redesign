@@ -376,14 +376,12 @@ export default function ReportPage() {
       if (!res.ok) throw new Error(data.error || 'Report generation failed.');
       const newReport: Report = data.report;
 
-      // Load full thread first so we preserve contract, correspondence, citations etc.
-      const existing = await loadCurrentThread();
+      // saveCurrentThread preserves all evidence fields (contract, citations, etc.) automatically
       await saveCurrentThread({
-        ...(existing ?? {}),
         analysis:    analysis!,
         projectData: projectData ?? { name: '', contractNumber: '', changeRequestId: '' },
         report:      newReport,
-      } as any);
+      });
       setReport(newReport);
       setReportStatus('ready');
     } catch (err) {

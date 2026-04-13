@@ -80,22 +80,25 @@ export async function saveCurrentThread(
   const db  = await openDB();
   const now = new Date().toISOString();
 
-  // Load existing to preserve createdAt
+  // Load existing to preserve createdAt and any evidence fields not in data
   const existing = await loadCurrentThread();
 
   const thread: NSBThread = {
-    id:             CURRENT_THREAD_ID,
-    createdAt:      existing?.createdAt ?? data.createdAt ?? now,
-    updatedAt:      now,
-    projectData:    data.projectData,
-    analysis:       data.analysis,
-    contract:       data.contract,
-    correspondence: data.correspondence,
-    citations:      data.citations,
-    draft:          data.draft,
-    chatHistory:    data.chatHistory,
-    report:         data.report,
-    contractBlob:   data.contractBlob,
+    id:          CURRENT_THREAD_ID,
+    createdAt:   existing?.createdAt ?? data.createdAt ?? now,
+    updatedAt:   now,
+    projectData: data.projectData,
+    analysis:    data.analysis,
+    // Evidence fields: use data value if the key is explicitly present in data,
+    // otherwise fall back to the existing stored value.
+    // Omitting a field preserves it; passing undefined explicitly clears it.
+    contract:       ('contract'       in data) ? data.contract       : existing?.contract,
+    correspondence: ('correspondence' in data) ? data.correspondence : existing?.correspondence,
+    citations:      ('citations'      in data) ? data.citations      : existing?.citations,
+    draft:          ('draft'          in data) ? data.draft          : existing?.draft,
+    chatHistory:    ('chatHistory'    in data) ? data.chatHistory    : existing?.chatHistory,
+    report:         ('report'         in data) ? data.report         : existing?.report,
+    contractBlob:   ('contractBlob'   in data) ? data.contractBlob   : existing?.contractBlob,
   };
 
   return new Promise((resolve, reject) => {
