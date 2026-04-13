@@ -6,7 +6,7 @@ import {
   Scale, Loader2, Send, FileSearch
 } from 'lucide-react';
 import { loadCurrentThread } from '../lib/db';
-import { Citation, ExtractedPage } from '../types';
+import { Citation, ExtractedPage, ClauseEntry } from '../types';
 
 // ---------------------------------------------------------------------------
 // Inline Sources chat (Ask a question — user-initiated, not auto-called)
@@ -104,6 +104,7 @@ export default function SourcesPage() {
   const [citations, setCitations] = useState<Citation[]>([]);
   const [docName,   setDocName]   = useState('');
   const [pdfUrl,    setPdfUrl]    = useState<string | null>(null);
+  const [clauses,   setClauses]   = useState<ClauseEntry[]>([]);
   const [loading,   setLoading]   = useState(true);
   const [search,    setSearch]    = useState('');
   const [zoom,      setZoom]      = useState(100);
@@ -143,6 +144,10 @@ export default function SourcesPage() {
 
         if (thread.citations?.length) {
           setCitations(thread.citations as Citation[]);
+        }
+        // Pull Key Contract Clauses from the report if one has been generated
+        if (thread.report?.sections?.keyContractClauses?.length) {
+          setClauses(thread.report.sections.keyContractClauses);
         }
       } catch (err) {
         console.error('Failed to load sources:', err);
@@ -391,7 +396,7 @@ export default function SourcesPage() {
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-headline font-bold text-lg text-on-surface">Citations & Evidence</h2>
             <span className="bg-primary/10 text-primary px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">
-              {citations.length} Finding{citations.length !== 1 ? 's' : ''}
+              {citations.length + clauses.length} Finding{citations.length + clauses.length !== 1 ? 's' : ''}
             </span>
           </div>
           <div className="relative">
@@ -455,6 +460,55 @@ export default function SourcesPage() {
             );
           })}
         </div>
+
+        {/* Key Contract Clauses from Report */}
+        {clauses.length > 0 && (
+          <div className="pt-2">
+            <div className="flex items-center gap-2 mb-4 pt-4 border-t border-slate-200">
+              <Scale size={14} className="text-primary shrink-0" />
+              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Key Contract Clauses</span>
+              <span className="text-[10px] text-slate-400">from Report</span>
+            </div>
+            <div className="space-y-4">
+              {clauses.map((clause, i) => (
+                <div key={i} className="rounded-xl border border-slate-200 overflow-hidden group hover:shadow-md transition-all">
+                  {/* Reference header */}
+                  <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200 flex items-center gap-2">
+                    <FileText size={12} className="text-primary shrink-0" />
+                    <span className="text-[11px] font-bold text-primary uppercase tracking-wider truncate">{clause.reference}</span>
+                  </div>
+                  <div className="p-4 space-y-3">
+                    {/* Excerpt */}
+                    <blockquote className="border-l-4 border-primary/30 pl-3 text-xs italic text-slate-600 leading-relaxed">
+                      {clause.excerpt}
+                    </blockquote>
+                    {/* Meaning */}
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Meaning</span>
+                      <p className="text-xs text-on-surface leading-relaxed">{clause.meaning}</p>
+                    </div>
+                    {/* Why it matters */}
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Why It Matters</span>
+                      <p className="text-xs text-on-surface-variant leading-relaxed">{clause.whyItMatters}</p>
+                    </div>
+                    {/* Jump to page if page number in reference */}
+                    {(() => {
+                      const m = clause.reference.match(/(?:page|pg|p\.?)\s*(\d+)/i);
+                      const pg = m ? parseInt(m[1], 10) : null;
+                      return pg !== null ? (
+                        <button onClick={() => scrollToPage(pg)}
+                          className="flex items-center gap-1.5 text-[11px] font-bold text-primary hover:underline">
+                          <ArrowRight size={12} /> Jump to Page {pg}
+                        </button>
+                      ) : null;
+                    })()}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Ask the Contract footer */}
         <div className="p-6 bg-slate-50 border-t border-slate-200">
