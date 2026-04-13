@@ -6,7 +6,6 @@ import {
   FileText, 
   MessageSquareQuote, 
   PenLine, 
-  BarChart3,
   UserCircle,
   Settings,
   Building2
@@ -20,7 +19,6 @@ export default function Sidebar() {
     { icon: FileText, label: 'Report', to: '/report' },
     { icon: MessageSquareQuote, label: 'Sources', to: '/sources' },
     { icon: PenLine, label: 'Draft Response', to: '/draft' },
-    { icon: BarChart3, label: 'Analytics', to: '/analytics' },
   ];
 
   return (
