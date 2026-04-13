@@ -6,8 +6,6 @@ import {
   FileText, 
   MessageSquareQuote, 
   PenLine, 
-  UserCircle,
-  Settings,
   Building2
 } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -53,26 +51,7 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      <div className="mt-auto pt-6 space-y-1">
-        <button className="w-full mb-4 py-2.5 px-4 bg-primary text-white text-sm font-semibold rounded-lg flex items-center justify-center gap-2 hover:bg-primary-dim transition-colors shadow-sm">
-          <PenLine size={16} />
-          Sign Document
-        </button>
-        <NavLink
-          to="/profile"
-          className="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:text-on-surface hover:bg-slate-50 rounded-md transition-colors text-sm font-medium"
-        >
-          <UserCircle size={18} />
-          <span>Profile</span>
-        </NavLink>
-        <NavLink
-          to="/settings"
-          className="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:text-on-surface hover:bg-slate-50 rounded-md transition-colors text-sm font-medium"
-        >
-          <Settings size={18} />
-          <span>Settings</span>
-        </NavLink>
-      </div>
+
     </aside>
   );
 }
