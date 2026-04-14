@@ -27,8 +27,8 @@ export default function Sidebar() {
             <Building2 size={24} />
           </div>
           <div>
-            <h2 className="text-sm font-bold text-on-surface block">Project Alpha</h2>
-            <p className="text-[10px] text-on-surface-variant tracking-wider uppercase">Contractor: BuildCorp</p>
+            <h2 className="text-sm font-bold text-on-surface block">Never Sign Blind</h2>
+            <p className="text-[10px] text-on-surface-variant tracking-wider uppercase">Change Order Intelligence</p>
           </div>
         </div>
       </div>
