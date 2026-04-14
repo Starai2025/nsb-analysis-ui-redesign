@@ -6,6 +6,7 @@ import {
   Loader2, RotateCcw
 } from 'lucide-react';
 import { loadCurrentThread, saveCurrentThread, clearCurrentThread } from '../lib/db';
+import NoAnalysis from '../components/NoAnalysis';
 
 function safeDate(value: string): string {
   if (!value || value === 'Not specified') return 'Not specified';
@@ -117,18 +118,7 @@ export default function DecisionSummaryPage() {
   }
 
   if (!analysis) {
-    return (
-      <div className="flex flex-col items-center justify-center h-[calc(100vh-4rem)] gap-4">
-        <AlertTriangle size={48} className="text-amber-500" />
-        <p className="text-on-surface-variant font-bold">No analysis found. Please run an analysis first.</p>
-        <button
-          onClick={() => navigate('/intake')}
-          className="bg-primary text-white px-6 py-2 rounded-lg font-bold hover:bg-primary-dim transition-all"
-        >
-          Go to Intake
-        </button>
-      </div>
-    );
+    return <NoAnalysis currentStep="summary" />;
   }
 
   const projectLabel = projectData?.name

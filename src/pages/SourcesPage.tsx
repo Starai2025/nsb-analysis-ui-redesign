@@ -6,6 +6,7 @@ import {
   Scale, Loader2, FileSearch
 } from 'lucide-react';
 import { loadCurrentThread } from '../lib/db';
+import NoAnalysis from '../components/NoAnalysis';
 import { Citation, ExtractedPage, ClauseEntry } from '../types';
 
 // ---------------------------------------------------------------------------
@@ -168,6 +169,10 @@ export default function SourcesPage() {
       hint   = 'Run a new analysis to enable the PDF viewer for this document.';
     }
 
+    // noThread = no analysis at all → use the guided NoAnalysis journey card
+    if (noThread || (!contractMissing && !extractionFailed)) {
+      return <NoAnalysis currentStep="sources" />;
+    }
     return (
       <div className="flex flex-col items-center justify-center h-[calc(100vh-4rem)] gap-4 text-center px-8">
         {icon}

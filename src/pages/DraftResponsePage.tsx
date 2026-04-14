@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { loadCurrentThread, saveCurrentThread } from '../lib/db';
+import NoAnalysis from '../components/NoAnalysis';
 import { Draft, DraftStatus, DraftStrategy, AnalysisResult, ProjectData } from '../types';
 import { cn } from '../lib/utils';
 
@@ -292,34 +293,26 @@ export default function DraftResponsePage() {
   // Lifecycle renders
   // ---------------------------------------------------------------------------
 
-  const renderIdle = () => (
-    <div className="flex flex-col items-center justify-center py-24 gap-6 text-center">
-      <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
-        <FileText size={36} className="text-primary" />
-      </div>
-      <div className="space-y-2">
-        <h3 className="text-xl font-bold text-on-surface">
-          {analysis ? 'Draft not yet generated' : 'No analysis found'}
-        </h3>
-        <p className="text-sm text-on-surface-variant max-w-sm">
-          {analysis
-            ? 'Generate a client-facing response letter and internal claim strategy from your analysis.'
-            : 'Complete an analysis on the Intake page first.'}
-        </p>
-      </div>
-      {analysis ? (
+  const renderIdle = () => {
+    if (!analysis) return <NoAnalysis currentStep="draft" />;
+    return (
+      <div className="flex flex-col items-center justify-center py-24 gap-6 text-center">
+        <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
+          <FileText size={36} className="text-primary" />
+        </div>
+        <div className="space-y-2">
+          <h3 className="text-xl font-bold text-on-surface">Draft not yet generated</h3>
+          <p className="text-sm text-on-surface-variant max-w-sm">
+            Generate a client-facing response letter and internal claim strategy from your analysis.
+          </p>
+        </div>
         <button onClick={handleGenerate}
           className="flex items-center gap-2 bg-primary text-white px-8 py-3 rounded-xl font-bold hover:bg-primary-dim transition-all shadow-lg active:scale-95">
           <Sparkles size={18} /> Generate Draft
         </button>
-      ) : (
-        <button onClick={() => navigate('/intake')}
-          className="bg-primary text-white px-6 py-2.5 rounded-lg font-bold hover:bg-primary-dim transition-all">
-          Go to Intake
-        </button>
-      )}
-    </div>
-  );
+      </div>
+    );
+  };
 
   const renderGenerating = () => (
     <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
