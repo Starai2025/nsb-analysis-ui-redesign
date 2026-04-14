@@ -198,12 +198,22 @@ const SYSTEM_PROMPT = `You are a senior construction contract manager with deep 
 
 Your task: analyze the provided contract and correspondence to determine the legal and financial impact of a proposed change.
 
+Known high-risk clause patterns to actively look for:
+  - PAY-WHEN-PAID (severity=HIGH): You only get paid when the GC gets paid by the owner — no fixed deadline. | Commercial risk: If the owner is slow, disputes a draw, or goes bankrupt, your payment is frozen indefinitely. No clo... [Statutes: GA, CA]
+  - PAY-IF-PAID (severity=HIGH): If the owner never pays the GC, you never get paid — your payment is a true condition, not just timing. | Commercial risk: Owner insolvency or dispute = you absorb the loss. This is the most dangerous payment clause in cons... [Statutes: GA, CA]
+  - RETAINAGE (severity=HIGH): Your 10% retainage is held until the entire project closes — not when your scope is done. | Commercial risk: You could finish your scope in month 3 of a 14-month project and wait over a year to collect money y... [Statutes: GA, CA]
+  - NOTICE (severity=HIGH): You must give written notice of any extra work within 48 hours or you waive recovery rights. | Commercial risk: In real field conditions, a changed condition on a Friday afternoon means you lose recovery rights b...
+  - BACKCHARGE (severity=MED): GC can deduct backcharges from your payments at any time without prior written notice. | Commercial risk: You could receive a payment 30% lower than expected with no advance warning and no ability to disput...
+  - LIQUIDATED-DAMAGES (severity=MED): You are exposed to per-day liquidated damages for project delays that may include delays caused by others. | Commercial risk: LD clauses without a scope cap can expose you to charges for delays caused by the owner, GC, or othe...
+  - INDEMNITY (severity=HIGH): You must defend and pay for any claims arising from the project, including claims caused by the GC or owner. | Commercial risk: Broad indemnity with no carve-out for GC negligence transfers the GC's legal costs and liability ont... [Statutes: GA]
+  - TERMINATION (severity=HIGH): GC can terminate the contract at any time for any reason, and you only receive payment for work already completed — no lost profit. | Commercial risk: If you mobilized, ordered materials, and scheduled crews, a termination-for-convenience clause means...
+
 Analysis guidelines:
 1. Identify the relevant contract clauses governing scope, changes, notice, and payment — cite page numbers when available (e.g., "per Section 7.2, Page 14").
 2. Determine whether the proposed work is within or outside the original contract scope.
 3. Identify the responsible party for the cost and time impact under the contract terms.
 4. Detect any notice requirements: find the specific clause that requires written notice of claims, and extract the deadline date if stated or calculable.
-5. Flag adversarial or non-standard clauses that shift unusual risk to the contractor.
+5. Flag adversarial or non-standard clauses from the known patterns above that shift unusual risk to the contractor.
 6. If a value cannot be determined from the documents, use "Not specified" — never hallucinate figures or dates.
 7. scopeStatus must be exactly "In Scope" or "Out of Scope".
 8. noticeDeadline must be YYYY-MM-DD format or "Not specified".
@@ -960,12 +970,19 @@ async function startServer() {
         ? bodyChunks
         : [...contractChunks, ...correspondenceChunks];
 
-      // Simple keyword-overlap relevance scorer
+      // Clause-library boosted relevance scorer
+      // Legal/commercial terms from clause-fingerprints.json get 3x weight
+      const CLAUSE_BOOST_TERMS = new Set(["acceleration","acknowledgment","adjustment","aggregate","allocated","allocation","allowable","allowable-cost","application","applications","approvals","arbitration","assumed","assumption","audit","availability","away","back","back-to-back","backcharge","backstop","before","bond","boundaries","broad","care","carve-out","change","change-order","changes","claim","closeout","compensation","compliance","condition","conditions","consequential","construction","construction-phase","continue","continuous","contract","contractor","convenience","costs","cure","damages","deadline","default","defend","delay","delay-liability","design","designer","deviation","differing","disclaimer","dispute","during","duty","effect","embedded","equivalent","escalation","exhaustive","express","expressly","extra","field-to-senior-to-mediation","final","first","flowdown","formula","from","full","funds","general","growth","guarantee","harmless","hazardous","hire","hold","indemnify","indemnity","information","infringement","inspection","insurance","intellectual","interest","internal","invoice","ladder","late","legal","liability","license","licenses","lien","limit","limited","limits","liquidated","litigation","mandatory","materials","mediation","milestone","multiple","mutual","no-damages-for-delay","notice","numeric","obligation","obligations","open-ended","order","outside","owner","owner/design-builder","ownership","package","paid","pass-through","pay-if-paid","pay-when-paid","payment","performance","period","permit","permits","phase","pre-existing","precedent","preliminary","prime","prime-contract","process","product","professional","project","project-use","property","quantity","records","recovery","release","releases","reliance","relief","rely","remedy","remote","requirements","responsibility","retainage","retains","retention","review","reviewing","right","rights","risk","role","safety","schedule","scope","section","services","setoff","settlement","short","site","standard","state","step","step-in","stepped","sub-cap","subcap","subject","support","terminate","termination","tied","tiered","time-only","transfer","unless","upper-tier","upstream","venue","visit","visits","waiver","waivers","warranty","when","with","withholding","within","without","work","work-for-hire","written"]);
       const questionWords = question.toLowerCase().split(/\W+/).filter(w => w.length > 2);
       const scored = allChunks.map((chunk: any) => {
-        const text   = (chunk.text ?? "").toLowerCase();
-        const hits   = questionWords.filter(w => text.includes(w)).length;
-        return { chunk, score: hits };
+        const text = (chunk.text ?? "").toLowerCase();
+        let score  = 0;
+        for (const w of questionWords) {
+          if (text.includes(w)) {
+            score += CLAUSE_BOOST_TERMS.has(w) ? 3 : 1;
+          }
+        }
+        return { chunk, score };
       });
       scored.sort((a, b) => b.score - a.score);
       const topChunks = scored.slice(0, 5).filter(s => s.score > 0).map(s => s.chunk);
