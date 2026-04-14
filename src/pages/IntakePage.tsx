@@ -287,7 +287,7 @@ export default function IntakePage() {
               <Info size={20} />
             </div>
             <div>
-              <p className="text-sm font-bold mb-1.5">Powered by Claude AI</p>
+              <p className="text-sm font-bold mb-1.5">AI-Assisted Contract Analysis</p>
               <p className="text-[13px] text-white/70 leading-relaxed font-medium">
                 Your documents are analyzed securely. Files are processed to extract clauses and generate your risk assessment — never stored or shared.
               </p>

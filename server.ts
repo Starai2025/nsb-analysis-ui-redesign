@@ -973,7 +973,7 @@ async function startServer() {
       // If no chunks matched, still answer but note limited context
       const contextText = topChunks.length
         ? topChunks.map((c: any) => `[Page ${c.pageNumber ?? "?"}]\n${c.text}`).join("\n\n---\n\n")
-        : "No contract text is available. Answer as best you can from general knowledge.";
+        : null;
 
       // Build message history for conversational context (last 6 turns)
       const recentHistory = (history ?? []).slice(-6);
@@ -982,15 +982,29 @@ async function startServer() {
         content: m.text,
       }));
 
+      // If no chunks matched, return a no-support response without calling Claude
+      if (!contextText) {
+        res.json({
+          answer: "I could not find relevant text in the uploaded documents to answer this question. Please try rephrasing, or check that the correct contract was uploaded. If the document is scanned or image-based, text extraction may be limited.",
+          sourceChunks: [],
+        });
+        return;
+      }
+
       const client = new Anthropic({ apiKey });
       const response = await withRetry(
         () => client.messages.create({
           model:      "claude-sonnet-4-5",
           max_tokens: 512,
-          system: `You are a construction contract analyst answering questions about an uploaded contract and correspondence.
-Answer concisely based on the provided contract excerpts. Cite page numbers when available (e.g., "per Page 3").
-If the answer is not in the excerpts, say so clearly — do not fabricate.
-Keep answers under 150 words.`,
+          system: `You are a construction contract analyst. Answer questions strictly from the provided contract excerpts.
+
+Rules:
+1. Only use information explicitly present in the provided excerpts.
+2. Always cite the page number when referencing a clause (e.g., "per Page 3").
+3. If the answer is not clearly supported by the excerpts, respond: "I could not find clear support for this in the uploaded documents."
+4. Never answer from general legal knowledge or inference beyond the text.
+5. Never state conclusions more confidently than the text supports.
+6. Keep answers under 150 words.`,
           messages: [
             ...historyMessages,
             {
