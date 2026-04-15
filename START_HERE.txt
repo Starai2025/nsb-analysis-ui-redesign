@@ -1,0 +1,120 @@
+╔═══════════════════════════════════════════════════════════════╗
+║                                                               ║
+║           NSB ANALYSIS UI REDESIGN                            ║
+║           GITHUB REPOSITORY SETUP                             ║
+║                                                               ║
+╚═══════════════════════════════════════════════════════════════╝
+
+🚨 URGENT: SECURITY ALERT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Your .env file contains an exposed Anthropic API key!
+
+→ ROTATE IT NOW: https://console.anthropic.com/settings/keys
+
+The scripts below will protect this file from being uploaded to GitHub,
+but you should still rotate the key as a security best practice.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+🚀 QUICK START (Choose ONE)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+OPTION 1: Fully Automated (RECOMMENDED)
+────────────────────────────────────────
+Double-click: SETUP_GITHUB.bat
+
+✓ Complete automation
+✓ Opens GitHub for you
+✓ Creates .gitignore to protect .env
+✓ Creates README
+✓ Pushes to GitHub
+
+
+OPTION 2: PowerShell (Modern & Pretty)
+────────────────────────────────────────
+Right-click: Setup-GitHub.ps1 → "Run with PowerShell"
+
+✓ Modern PowerShell interface
+✓ Better error messages
+✓ Colored output
+✓ Same automation as Option 1
+
+
+OPTION 3: Manual Control
+────────────────────────────────────────
+Read: GITHUB_SETUP_GUIDE.md
+
+✓ Step-by-step instructions
+✓ Full control over each step
+✓ Good for learning git
+✓ Troubleshooting included
+
+
+📁 FILES CREATED FOR YOU
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ SETUP_GITHUB.bat          - Main automated setup (Batch)
+✅ Setup-GitHub.ps1           - PowerShell version (Modern)
+✅ create-and-push.bat        - Interactive alternative
+✅ push-to-github.bat         - Basic manual setup
+✅ GITHUB_SETUP_GUIDE.md      - Complete manual guide
+✅ START_HERE.txt             - This file
+
+
+🎯 WHAT HAPPENS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Initialize git repository in this folder
+2. Create .gitignore (protects .env and sensitive files)
+3. Create README.md with project description
+4. Commit all files to git
+5. Open GitHub in your browser to create repo
+6. Push all code to your new GitHub repository
+
+
+🛡️ FILES PROTECTED (Will NOT be uploaded)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+❌ .env files (your API keys)
+❌ node_modules/ (dependencies)
+❌ dist/, build/ (build outputs)
+❌ test-results/ (test files)
+❌ .edge-temp/ (temp files)
+
+
+📦 FILES INCLUDED (Will be uploaded)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ Never-Sign-Blind-Analysis-App/ (full source code)
+✅ edge-dom.html
+✅ nsb-app-redesign draft 1 not final.html
+✅ nsb_brand_guide.html
+✅ README.md
+✅ .gitignore
+
+
+🔧 REQUIREMENTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✓ Git installed (check: open cmd and type "git --version")
+✓ GitHub account
+✓ Internet connection
+
+
+❓ NEED HELP?
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Git not installed?
+→ Download: https://git-scm.com/download/win
+
+Authentication issues?
+→ See GITHUB_SETUP_GUIDE.md (Troubleshooting section)
+
+Need to rotate API key?
+→ https://console.anthropic.com/settings/keys
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                    Created by Claude
+                    Date: 2026-04-15
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

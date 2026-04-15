@@ -1,0 +1,10 @@
+node_modules/
+.env
+.env.local
+dist/
+build/
+.netlify/
+test-results/
+.DS_Store
+*.log
+.edge-temp/

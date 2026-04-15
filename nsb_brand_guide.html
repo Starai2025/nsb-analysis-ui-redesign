@@ -1,0 +1,406 @@
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;900&family=Barlow:wght@400;500;600;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+.bg{background:#F7F8FA;padding:32px 24px;font-family:'Barlow',sans-serif;}
+.cover{background:#0F2044;border-radius:8px;padding:36px 32px;margin-bottom:28px;display:flex;justify-content:space-between;align-items:flex-end;}
+.cover-left h1{font-family:'Barlow Condensed',sans-serif;font-size:2.4rem;font-weight:900;color:#fff;letter-spacing:0.04em;text-transform:uppercase;line-height:1;}
+.cover-left h1 span{color:#E67E22;}
+.cover-left p{color:rgba(255,255,255,0.5);font-size:13px;margin-top:8px;letter-spacing:0.04em;text-transform:uppercase;}
+.cover-right{text-align:right;}
+.cover-right .ver{font-size:11px;color:rgba(255,255,255,0.3);letter-spacing:2px;text-transform:uppercase;}
+.cover-right .date{font-size:11px;color:rgba(255,255,255,0.3);margin-top:4px;}
+
+.section-title{font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#8A94A6;margin:0 0 16px;display:flex;align-items:center;gap:10px;}
+.section-title::after{content:'';flex:1;height:1px;background:#DDE1EA;}
+
+.card{background:#fff;border:1px solid #DDE1EA;border-radius:8px;padding:20px 24px;margin-bottom:20px;}
+
+.color-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+.swatch-group{border-radius:6px;overflow:hidden;border:1px solid #DDE1EA;}
+.swatch{height:64px;}
+.swatch-info{padding:10px 12px;background:#fff;}
+.swatch-name{font-size:12px;font-weight:700;color:#0F2044;}
+.swatch-hex{font-size:11px;color:#8A94A6;font-family:monospace;margin-top:2px;}
+.swatch-role{font-size:10px;color:#8A94A6;margin-top:3px;line-height:1.4;}
+
+.secondary-swatches{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-top:12px;}
+.mini-swatch{border-radius:4px;overflow:hidden;border:1px solid #DDE1EA;}
+.mini-color{height:36px;}
+.mini-info{padding:6px 8px;background:#fff;}
+.mini-hex{font-size:10px;font-family:monospace;color:#8A94A6;}
+.mini-name{font-size:10px;color:#0F2044;font-weight:600;}
+
+.type-row{display:flex;align-items:baseline;gap:16px;padding:14px 0;border-bottom:1px solid #EEF0F4;}
+.type-row:last-child{border-bottom:none;}
+.type-meta{width:180px;flex-shrink:0;}
+.type-meta-name{font-size:12px;font-weight:700;color:#0F2044;}
+.type-meta-spec{font-size:11px;color:#8A94A6;margin-top:2px;line-height:1.5;}
+.type-sample{flex:1;}
+
+.btn-row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:12px;}
+.demo-btn{display:inline-flex;align-items:center;padding:11px 22px;font-family:'Barlow',sans-serif;font-weight:700;font-size:13px;letter-spacing:0.02em;border-radius:4px;border:none;cursor:default;}
+.demo-btn-primary{background:#0F2044;color:#fff;}
+.demo-btn-orange{background:#E67E22;color:#fff;}
+.demo-btn-outline{background:transparent;color:#0F2044;border:2px solid #DDE1EA;}
+.demo-btn-white{background:transparent;color:#fff;border:2px solid rgba(255,255,255,0.35);}
+.demo-btn-sm{padding:7px 14px;font-size:11px;}
+.demo-btn-lg{padding:15px 32px;font-size:15px;}
+
+.badge-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.demo-badge{display:inline-block;padding:3px 10px;font-size:10px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;border-radius:2px;}
+
+.spacing-row{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;}
+.spacing-item{text-align:center;}
+.spacing-block{background:#E67E22;border-radius:2px;margin:0 auto 6px;}
+.spacing-val{font-size:10px;font-weight:700;color:#0F2044;font-family:monospace;}
+.spacing-name{font-size:10px;color:#8A94A6;}
+
+.shadow-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+.shadow-demo{background:#fff;border-radius:6px;padding:14px;text-align:center;}
+.shadow-label{font-size:11px;font-weight:700;color:#0F2044;margin-bottom:4px;}
+.shadow-spec{font-size:10px;color:#8A94A6;font-family:monospace;}
+
+.nav-demo{background:#fff;border-bottom:1px solid #EEF0F4;padding:12px 20px;display:flex;justify-content:space-between;align-items:center;border-radius:6px;}
+.nav-demo-logo{font-family:'Barlow Condensed',sans-serif;font-size:1.3rem;font-weight:900;color:#0F2044;letter-spacing:0.03em;}
+.nav-demo-logo span{color:#E67E22;}
+
+.severity-col{display:flex;flex-direction:column;gap:6px;}
+.sev-item{padding:10px 14px;border-left:4px solid;border-radius:0 4px 4px 0;}
+.sev-item-label{font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;}
+.sev-item-text{font-size:12px;color:#4A5568;margin-top:2px;}
+
+.score-row{display:flex;gap:8px;flex-wrap:wrap;}
+.score-pill{display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border-radius:4px;border:1.5px solid;font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;}
+
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.footer-demo{background:#0F2044;border-radius:6px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;}
+.footer-demo-brand{font-family:'Barlow Condensed',sans-serif;font-size:1.1rem;font-weight:900;color:#fff;}
+.footer-demo-brand span{color:#E67E22;}
+.footer-demo-links{display:flex;gap:14px;}
+.footer-demo-link{font-size:11px;color:#8A94A6;}
+</style>
+
+<div class="bg">
+
+  <div class="cover">
+    <div class="cover-left">
+      <h1>Never Sign<br>Blind<span>™</span></h1>
+      <p>Brand Guide — Design System v2 · Blueprint Justice</p>
+    </div>
+    <div class="cover-right">
+      <div class="ver">Version 2.0</div>
+      <div class="date">April 2026</div>
+    </div>
+  </div>
+
+  <div class="section-title">Primary Colors</div>
+  <div class="card">
+    <div class="color-grid">
+      <div class="swatch-group">
+        <div class="swatch" style="background:#0F2044;"></div>
+        <div class="swatch-info">
+          <div class="swatch-name">Navy</div>
+          <div class="swatch-hex">#0F2044 · --navy</div>
+          <div class="swatch-role">Primary background, headings, nav, footer, buttons</div>
+        </div>
+      </div>
+      <div class="swatch-group">
+        <div class="swatch" style="background:#E67E22;"></div>
+        <div class="swatch-info">
+          <div class="swatch-name">Orange</div>
+          <div class="swatch-hex">#E67E22 · --orange</div>
+          <div class="swatch-role">CTA buttons, accents, links, badges, severity HIGH</div>
+        </div>
+      </div>
+      <div class="swatch-group">
+        <div class="swatch" style="background:#FFFFFF;border-bottom:1px solid #DDE1EA;"></div>
+        <div class="swatch-info">
+          <div class="swatch-name">White</div>
+          <div class="swatch-hex">#FFFFFF · --white</div>
+          <div class="swatch-role">Page background, card surfaces, reverse text</div>
+        </div>
+      </div>
+      <div class="swatch-group">
+        <div class="swatch" style="background:#1A3260;"></div>
+        <div class="swatch-info">
+          <div class="swatch-name">Navy 700</div>
+          <div class="swatch-hex">#1A3260 · --navy-700</div>
+          <div class="swatch-role">Hover state for navy buttons</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="secondary-swatches">
+      <div class="mini-swatch">
+        <div class="mini-color" style="background:#254580;"></div>
+        <div class="mini-info"><div class="mini-name">Navy 500</div><div class="mini-hex">#254580</div></div>
+      </div>
+      <div class="mini-swatch">
+        <div class="mini-color" style="background:#F39C12;"></div>
+        <div class="mini-info"><div class="mini-name">Orange Lt</div><div class="mini-hex">#F39C12</div></div>
+      </div>
+      <div class="mini-swatch">
+        <div class="mini-color" style="background:#FEF9F0;border:1px solid #eee;"></div>
+        <div class="mini-info"><div class="mini-name">Orange 50</div><div class="mini-hex">#FEF9F0</div></div>
+      </div>
+      <div class="mini-swatch">
+        <div class="mini-color" style="background:#FDF3E7;border:1px solid #eee;"></div>
+        <div class="mini-info"><div class="mini-name">Orange Pale</div><div class="mini-hex">#FDF3E7</div></div>
+      </div>
+      <div class="mini-swatch">
+        <div class="mini-color" style="background:#C0392B;"></div>
+        <div class="mini-info"><div class="mini-name">Red</div><div class="mini-hex">#C0392B</div></div>
+      </div>
+      <div class="mini-swatch">
+        <div class="mini-color" style="background:#FDECEA;border:1px solid #eee;"></div>
+        <div class="mini-info"><div class="mini-name">Red Pale</div><div class="mini-hex">#FDECEA</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title">Neutral Grays</div>
+  <div class="card">
+    <div class="secondary-swatches" style="grid-template-columns:repeat(6,1fr);">
+      <div class="mini-swatch">
+        <div class="mini-color" style="background:#F7F8FA;border:1px solid #eee;"></div>
+        <div class="mini-info"><div class="mini-name">Gray 50</div><div class="mini-hex">#F7F8FA</div></div>
+      </div>
+      <div class="mini-swatch">
+        <div class="mini-color" style="background:#EEF0F4;border:1px solid #eee;"></div>
+        <div class="mini-info"><div class="mini-name">Gray 100</div><div class="mini-hex">#EEF0F4</div></div>
+      </div>
+      <div class="mini-swatch">
+        <div class="mini-color" style="background:#DDE1EA;"></div>
+        <div class="mini-info"><div class="mini-name">Gray 200</div><div class="mini-hex">#DDE1EA</div></div>
+      </div>
+      <div class="mini-swatch">
+        <div class="mini-color" style="background:#8A94A6;"></div>
+        <div class="mini-info"><div class="mini-name">Gray 400</div><div class="mini-hex">#8A94A6</div></div>
+      </div>
+      <div class="mini-swatch">
+        <div class="mini-color" style="background:#4A5568;"></div>
+        <div class="mini-info"><div class="mini-name">Gray 600</div><div class="mini-hex">#4A5568</div></div>
+      </div>
+      <div class="mini-swatch">
+        <div class="mini-color" style="background:#1A6B3A;"></div>
+        <div class="mini-info"><div class="mini-name">Green</div><div class="mini-hex">#1A6B3A</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title">Typography</div>
+  <div class="card">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid #EEF0F4;">
+      <div>
+        <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#8A94A6;margin-bottom:10px;">Display Font</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:2rem;font-weight:900;color:#0F2044;line-height:1;text-transform:uppercase;">Barlow Condensed</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:1rem;font-weight:700;color:#8A94A6;text-transform:uppercase;letter-spacing:0.1em;margin-top:6px;">--font-display</div>
+        <div style="font-size:11px;color:#8A94A6;margin-top:8px;">Weights used: 600 · 700 · 800 · 900<br>Use: headings, nav logo, hero titles, CTAs</div>
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#8A94A6;margin-bottom:10px;">Body Font</div>
+        <div style="font-family:'Barlow',sans-serif;font-size:1.1rem;font-weight:400;color:#0F2044;line-height:1.6;">Barlow</div>
+        <div style="font-family:'Barlow',sans-serif;font-size:0.9rem;font-weight:400;color:#8A94A6;margin-top:4px;">--font-body</div>
+        <div style="font-size:11px;color:#8A94A6;margin-top:8px;">Weights used: 400 · 500 · 600 · 700<br>Use: body copy, labels, buttons, form fields</div>
+      </div>
+    </div>
+
+    <div class="type-row">
+      <div class="type-meta">
+        <div class="type-meta-name">Display / Hero</div>
+        <div class="type-meta-spec">Barlow Condensed 900<br>clamp(2.2rem, 5vw, 3.8rem)<br>uppercase · ls 0.02em · lh 1.05</div>
+      </div>
+      <div class="type-sample" style="font-family:'Barlow Condensed',sans-serif;font-size:2rem;font-weight:900;color:#0F2044;text-transform:uppercase;line-height:1.05;">Profit Protection</div>
+    </div>
+    <div class="type-row">
+      <div class="type-meta">
+        <div class="type-meta-name">Section Heading</div>
+        <div class="type-meta-spec">Barlow Condensed 900<br>clamp(1.8rem, 4vw, 2.8rem)<br>uppercase · lh 1.08</div>
+      </div>
+      <div class="type-sample" style="font-family:'Barlow Condensed',sans-serif;font-size:1.7rem;font-weight:900;color:#0F2044;text-transform:uppercase;">What You Get Before You Sign</div>
+    </div>
+    <div class="type-row">
+      <div class="type-meta">
+        <div class="type-meta-name">Card Heading</div>
+        <div class="type-meta-spec">Barlow Condensed 700<br>1.05rem · uppercase</div>
+      </div>
+      <div class="type-sample" style="font-family:'Barlow Condensed',sans-serif;font-size:1.05rem;font-weight:700;color:#0F2044;text-transform:uppercase;letter-spacing:0.04em;">CashTrap Scan™</div>
+    </div>
+    <div class="type-row">
+      <div class="type-meta">
+        <div class="type-meta-name">Body Copy</div>
+        <div class="type-meta-spec">Barlow 400<br>0.875–0.9rem · lh 1.6–1.7</div>
+      </div>
+      <div class="type-sample" style="font-family:'Barlow',sans-serif;font-size:0.9rem;font-weight:400;color:#4A5568;line-height:1.65;">Upload the subcontract and get a fast review that shows every clause threatening your payment, retainage, or liability exposure.</div>
+    </div>
+    <div class="type-row">
+      <div class="type-meta">
+        <div class="type-meta-name">Section Badge / Label</div>
+        <div class="type-meta-spec">Barlow 700<br>0.68rem · uppercase<br>ls 0.16em · orange</div>
+      </div>
+      <div class="type-sample" style="display:inline-flex;align-items:center;gap:8px;font-family:'Barlow',sans-serif;font-size:0.68rem;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:#E67E22;background:#FEF9F0;border:1px solid rgba(230,126,34,0.3);padding:5px 12px;border-radius:2px;">Sample Output</div>
+    </div>
+    <div class="type-row">
+      <div class="type-meta">
+        <div class="type-meta-name">Form Label</div>
+        <div class="type-meta-spec">Barlow 700<br>0.75rem · uppercase<br>ls 0.06em · gray-600</div>
+      </div>
+      <div class="type-sample" style="font-family:'Barlow',sans-serif;font-size:0.75rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#4A5568;">Subcontract File</div>
+    </div>
+    <div class="type-row">
+      <div class="type-meta">
+        <div class="type-meta-name">Nav Logo</div>
+        <div class="type-meta-spec">Barlow Condensed 900<br>1.4rem · ls 0.03em</div>
+      </div>
+      <div class="type-sample" style="font-family:'Barlow Condensed',sans-serif;font-size:1.4rem;font-weight:900;color:#0F2044;letter-spacing:0.03em;">NEVER SIGN <span style="color:#E67E22;">BLIND™</span></div>
+    </div>
+  </div>
+
+  <div class="section-title">Buttons</div>
+  <div class="card">
+    <div style="font-size:10px;font-weight:700;color:#8A94A6;letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;">Variants</div>
+    <div class="btn-row">
+      <button class="demo-btn demo-btn-orange">Review My Deal</button>
+      <button class="demo-btn demo-btn-primary">Get The Checklist</button>
+      <button class="demo-btn demo-btn-outline">Learn More</button>
+      <div style="background:#0F2044;padding:8px 12px;border-radius:4px;display:inline-flex;">
+        <button class="demo-btn demo-btn-white">View Sample</button>
+      </div>
+    </div>
+    <div style="font-size:10px;font-weight:700;color:#8A94A6;letter-spacing:2px;text-transform:uppercase;margin:14px 0 10px;">Sizes</div>
+    <div class="btn-row">
+      <button class="demo-btn demo-btn-orange demo-btn-sm">Small · 9px 18px</button>
+      <button class="demo-btn demo-btn-orange">Default · 14px 28px</button>
+      <button class="demo-btn demo-btn-orange demo-btn-lg">Large · 17px 36px</button>
+    </div>
+    <div style="font-size:10px;font-weight:700;color:#8A94A6;letter-spacing:2px;text-transform:uppercase;margin:14px 0 10px;">Specs</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+      <div style="background:#F7F8FA;border-radius:4px;padding:10px 12px;">
+        <div style="font-size:10px;font-weight:700;color:#0F2044;">Font</div>
+        <div style="font-size:11px;color:#8A94A6;font-family:monospace;margin-top:3px;">Barlow 700<br>0.875rem<br>ls 0.02em</div>
+      </div>
+      <div style="background:#F7F8FA;border-radius:4px;padding:10px 12px;">
+        <div style="font-size:10px;font-weight:700;color:#0F2044;">Shape</div>
+        <div style="font-size:11px;color:#8A94A6;font-family:monospace;margin-top:3px;">border-radius: 4px<br>--radius token</div>
+      </div>
+      <div style="background:#F7F8FA;border-radius:4px;padding:10px 12px;">
+        <div style="font-size:10px;font-weight:700;color:#0F2044;">Shadow</div>
+        <div style="font-size:11px;color:#8A94A6;font-family:monospace;margin-top:3px;">0 2px 8px<br>rgba(navy, .25)<br>hover: translateY(-1px)</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title">Badges &amp; Severity</div>
+  <div class="card">
+    <div class="two-col">
+      <div>
+        <div style="font-size:10px;font-weight:700;color:#8A94A6;letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;">Badges</div>
+        <div class="badge-row">
+          <span class="demo-badge" style="background:#FDF3E7;color:#E67E22;">Orange</span>
+          <span class="demo-badge" style="background:#FDECEA;color:#C0392B;">Red</span>
+          <span class="demo-badge" style="background:#0F2044;color:#fff;">Navy</span>
+          <span class="demo-badge" style="background:#EEF0F4;color:#4A5568;">Gray</span>
+          <span class="demo-badge" style="background:#EAF7EF;color:#1A6B3A;">Green</span>
+        </div>
+        <div style="font-size:10px;font-weight:700;color:#8A94A6;letter-spacing:2px;text-transform:uppercase;margin:14px 0 10px;">Sign-with-Confidence Scores</div>
+        <div class="score-row">
+          <div class="score-pill" style="background:#EAF7EF;color:#1A6B3A;border-color:#A8D5B5;">✓ Safe to Sign</div>
+          <div class="score-pill" style="background:#FDF3E7;color:#8B4E0E;border-color:#F5C08A;">⚠ Negotiate</div>
+          <div class="score-pill" style="background:#FDECEA;color:#C0392B;border-color:#F5A89A;">✕ Do Not Sign</div>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:700;color:#8A94A6;letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;">Severity Rows</div>
+        <div class="severity-col">
+          <div class="sev-item" style="background:#FDECEA;border-color:#C0392B;">
+            <div class="sev-item-label" style="color:#C0392B;">High</div>
+            <div class="sev-item-text">border-left: 4px solid --red · bg --red-pale</div>
+          </div>
+          <div class="sev-item" style="background:#FDF3E7;border-color:#E67E22;">
+            <div class="sev-item-label" style="color:#E67E22;">Med</div>
+            <div class="sev-item-text">border-left: 4px solid --orange · bg --orange-pale</div>
+          </div>
+          <div class="sev-item" style="background:#F7F8FA;border-color:#8A94A6;">
+            <div class="sev-item-label" style="color:#8A94A6;">Low</div>
+            <div class="sev-item-text">border-left: 4px solid --gray-400 · bg --gray-50</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title">Spacing &amp; Radius</div>
+  <div class="card">
+    <div class="spacing-row">
+      <div class="spacing-item"><div class="spacing-block" style="width:4px;height:16px;"></div><div class="spacing-val">4px</div><div class="spacing-name">xs</div></div>
+      <div class="spacing-item"><div class="spacing-block" style="width:8px;height:24px;"></div><div class="spacing-val">8px</div><div class="spacing-name">sm</div></div>
+      <div class="spacing-item"><div class="spacing-block" style="width:16px;height:32px;"></div><div class="spacing-val">16px</div><div class="spacing-name">md</div></div>
+      <div class="spacing-item"><div class="spacing-block" style="width:24px;height:40px;"></div><div class="spacing-val">24px</div><div class="spacing-name">lg</div></div>
+      <div class="spacing-item"><div class="spacing-block" style="width:40px;height:48px;"></div><div class="spacing-val">40–80px</div><div class="spacing-name">section</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:16px;">
+      <div style="background:#F7F8FA;border-radius:4px;padding:10px 12px;text-align:center;">
+        <div style="font-size:10px;font-weight:700;color:#0F2044;">--radius</div>
+        <div style="font-size:22px;font-weight:700;color:#E67E22;margin:4px 0;">4px</div>
+        <div style="font-size:10px;color:#8A94A6;">Buttons, badges, cards, inputs</div>
+      </div>
+      <div style="background:#F7F8FA;border-radius:4px;padding:10px 12px;text-align:center;">
+        <div style="font-size:10px;font-weight:700;color:#0F2044;">--max-w</div>
+        <div style="font-size:22px;font-weight:700;color:#E67E22;margin:4px 0;">1080px</div>
+        <div style="font-size:10px;color:#8A94A6;">Max container width</div>
+      </div>
+      <div style="background:#F7F8FA;border-radius:4px;padding:10px 12px;text-align:center;">
+        <div style="font-size:10px;font-weight:700;color:#0F2044;">Section Padding</div>
+        <div style="font-size:22px;font-weight:700;color:#E67E22;margin:4px 0;">80px</div>
+        <div style="font-size:10px;color:#8A94A6;">Top/bottom · 56px mobile</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title">Shadows</div>
+  <div class="card">
+    <div class="shadow-row">
+      <div class="shadow-demo" style="box-shadow:0 1px 4px rgba(15,32,68,.07);">
+        <div class="shadow-label">--shadow-sm</div>
+        <div class="shadow-spec">0 1px 4px rgba(navy, .07)</div>
+      </div>
+      <div class="shadow-demo" style="box-shadow:0 4px 16px rgba(15,32,68,.10);">
+        <div class="shadow-label">--shadow-md</div>
+        <div class="shadow-spec">0 4px 16px rgba(navy, .10)</div>
+      </div>
+      <div class="shadow-demo" style="box-shadow:0 12px 40px rgba(15,32,68,.14);">
+        <div class="shadow-label">--shadow-lg</div>
+        <div class="shadow-spec">0 12px 40px rgba(navy, .14)</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title">Components in Context</div>
+  <div class="card">
+    <div style="font-size:10px;font-weight:700;color:#8A94A6;letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;">Nav</div>
+    <div class="nav-demo">
+      <div class="nav-demo-logo">Never Sign <span>Blind™</span></div>
+      <div style="display:flex;gap:10px;">
+        <button class="demo-btn demo-btn-outline demo-btn-sm">Free Checklist</button>
+        <button class="demo-btn demo-btn-orange demo-btn-sm">Review My Deal</button>
+      </div>
+    </div>
+    <div style="font-size:10px;font-weight:700;color:#8A94A6;letter-spacing:2px;text-transform:uppercase;margin:16px 0 10px;">Footer</div>
+    <div class="footer-demo">
+      <div class="footer-demo-brand">NEVER SIGN <span>BLIND™</span></div>
+      <div class="footer-demo-links">
+        <span class="footer-demo-link">Start a Review</span>
+        <span class="footer-demo-link">Free Checklist</span>
+        <span class="footer-demo-link">Sample Review</span>
+        <span class="footer-demo-link">Privacy</span>
+      </div>
+    </div>
+    <div style="font-size:10px;font-weight:700;color:#8A94A6;letter-spacing:2px;text-transform:uppercase;margin:16px 0 10px;">Form Input</div>
+    <div style="max-width:320px;">
+      <div style="font-size:0.75rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#4A5568;margin-bottom:6px;">Your name</div>
+      <div style="width:100%;padding:12px 14px;background:#fff;border:1.5px solid #DDE1EA;border-radius:4px;font-size:0.9rem;color:#8A94A6;font-family:'Barlow',sans-serif;">John Smith</div>
+    </div>
+  </div>
+
+</div>

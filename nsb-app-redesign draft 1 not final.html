@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Never Sign Blind™ — App Redesign</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --navy:#0F2044;--navy-7:#1A3260;--navy-5:#254580;
+  --orange:#E67E22;--orange-lt:#F39C12;
+  --o50:#FEF9F0;--opale:#FDF3E7;
+  --red:#C0392B;--rpale:#FDECEA;
+  --white:#FFFFFF;
+  --g50:#F7F8FA;--g100:#EEF0F4;--g200:#DDE1EA;
+  --g400:#8A94A6;--g600:#4A5568;
+  --green:#1A6B3A;--gpale:#EAF7EF;
+  --fd:'Barlow Condensed',sans-serif;
+  --fb:'Barlow',system-ui,sans-serif;
+  --r:4px;
+  --r-lg:10px;
+  --shadow-sm:0 1px 4px rgba(15,32,68,.07);
+  --shadow-md:0 4px 16px rgba(15,32,68,.10);
+  --shadow-lg:0 18px 40px rgba(15,32,68,.12);
+}
+html,body{height:100%;overflow:hidden;font-family:var(--fb);background:var(--g50);-webkit-font-smoothing:antialiased;}
+
+.app{display:flex;height:100vh;overflow:hidden;}
+
+/* SIDEBAR */
+.sb{width:240px;flex-shrink:0;background:var(--navy);display:flex;flex-direction:column;}
+.sb-brand{padding:24px 22px 18px;}
+.sb-logo{font-family:var(--fd);font-size:22px;font-weight:900;color:#fff;letter-spacing:2px;text-transform:uppercase;line-height:1;}
+.sb-logo span{color:var(--orange);}
+.sb-tagline{font-size:10px;color:rgba(255,255,255,0.28);letter-spacing:2px;text-transform:uppercase;margin-top:5px;}
+.sb-div{height:1px;background:rgba(255,255,255,0.08);}
+.sb-proj{padding:16px 22px;}
+.sb-proj-lbl{font-size:9px;font-weight:700;color:rgba(255,255,255,0.28);letter-spacing:2.5px;text-transform:uppercase;margin-bottom:5px;}
+.sb-proj-name{font-size:14px;font-weight:700;color:#fff;margin-bottom:2px;}
+.sb-proj-co{font-size:12px;color:rgba(255,255,255,0.38);}
+.sb-nlbl{font-size:9px;font-weight:700;color:rgba(255,255,255,0.22);letter-spacing:2px;text-transform:uppercase;padding:14px 22px 6px;}
+.sb-nav{flex:1;overflow-y:auto;}
+.ni{display:flex;align-items:center;gap:10px;padding:12px 22px;font-size:13px;font-weight:600;color:rgba(255,255,255,0.45);cursor:pointer;border-left:3px solid transparent;transition:all 0.15s;user-select:none;}
+.ni:hover{color:#fff;background:rgba(255,255,255,0.05);}
+.ni.on{color:#fff;border-left-color:var(--orange);background:rgba(230,126,34,0.1);}
+.ni-ico{width:18px;height:18px;border-radius:3px;background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.ni-ico svg{width:11px;height:11px;stroke:rgba(255,255,255,0.38);fill:none;stroke-width:1.8;}
+.ni.on .ni-ico{background:rgba(230,126,34,0.2);}
+.ni.on .ni-ico svg{stroke:var(--orange);}
+.ni-bdg{font-size:9px;font-weight:700;background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.38);border-radius:2px;padding:2px 6px;margin-left:auto;}
+.ni.on .ni-bdg{background:rgba(230,126,34,0.2);color:var(--orange);}
+.sb-foot{padding:16px 22px;border-top:1px solid rgba(255,255,255,0.06);margin-top:auto;}
+.sb-foot-txt{font-size:10px;color:rgba(255,255,255,0.2);line-height:1.6;}
+
+/* MAIN */
+.mn{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+
+/* TOPBAR */
+.tb{background:var(--white);border-bottom:1px solid var(--g100);padding:0 36px;height:58px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;box-shadow:var(--shadow-sm);}
+.tb-l{display:flex;align-items:center;gap:14px;}
+.tb-title{font-family:var(--fd);font-size:18px;font-weight:900;color:var(--navy);letter-spacing:2px;text-transform:uppercase;}
+.tb-sep{width:1px;height:20px;background:var(--g200);}
+.tb-crumb{font-size:14px;color:var(--g400);font-weight:500;}
+.tb-r{display:flex;align-items:center;gap:12px;}
+.tb-meta{display:flex;align-items:center;gap:8px;}
+.tb-mini{display:inline-flex;align-items:center;gap:7px;padding:6px 10px;border-radius:999px;background:var(--g50);border:1px solid var(--g100);font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--g600);}
+.tb-mini-dot{width:7px;height:7px;border-radius:50%;background:var(--orange);}
+.ai-bdg{display:inline-flex;align-items:center;gap:7px;padding:6px 13px;background:var(--gpale);border:1px solid #A8D5B5;border-radius:2px;font-size:10px;font-weight:700;color:var(--green);letter-spacing:1.5px;text-transform:uppercase;}
+.ai-dot{width:7px;height:7px;border-radius:50%;background:var(--green);}
+.usr{width:32px;height:32px;border-radius:50%;background:var(--navy-5);display:flex;align-items:center;justify-content:center;font-family:var(--fd);font-size:14px;font-weight:700;color:#fff;cursor:pointer;}
+
+/* SCREENS */
+.sc-wrap{flex:1;overflow:hidden;position:relative;}
+.sc{display:none;height:100%;overflow-y:auto;padding:36px 40px;}
+.sc.on{display:block;animation:fadeUp .35s ease;}
+
+/* TYPE */
+.ey{font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--orange);margin-bottom:6px;}
+.pg-title{font-family:var(--fd);font-size:30px;font-weight:900;color:var(--navy);text-transform:uppercase;letter-spacing:0.02em;margin-bottom:7px;line-height:1.05;}
+.pg-desc{font-size:14px;color:var(--g400);margin-bottom:30px;line-height:1.5;}
+
+/* CARDS */
+.card{background:var(--white);border:1px solid var(--g100);border-radius:var(--r);padding:24px 26px;margin-bottom:18px;box-shadow:var(--shadow-sm);}
+.ct{font-size:10px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:var(--g400);margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--g100);}
+
+/* FORMS */
+.fl{display:block;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--g600);margin-bottom:7px;}
+.fi{width:100%;padding:11px 14px;border:1.5px solid var(--g200);border-radius:var(--r);font-family:var(--fb);font-size:14px;color:var(--navy);outline:none;background:var(--white);transition:border-color 0.15s,box-shadow 0.15s;}
+.fi:focus{border-color:var(--orange);box-shadow:0 0 0 3px rgba(230,126,34,0.1);}
+.fi::placeholder{color:var(--g400);}
+.gr{margin-bottom:14px;}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+
+/* UPLOAD ZONES */
+.uz{border:2px dashed var(--g200);border-radius:var(--r);padding:28px 20px;text-align:center;cursor:pointer;background:var(--g50);transition:all 0.15s;}
+.uz:hover{border-color:var(--orange);background:var(--o50);}
+.uz-ico{width:44px;height:44px;border:2px solid var(--g200);border-radius:6px;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;transition:border-color 0.15s;}
+.uz-ico svg{width:20px;height:20px;stroke:var(--g400);fill:none;stroke-width:1.5;transition:stroke 0.15s;}
+.uz:hover .uz-ico{border-color:var(--orange);}
+.uz:hover .uz-ico svg{stroke:var(--orange);}
+.uz-title{font-size:14px;font-weight:700;color:var(--navy);margin-bottom:4px;}
+.uz-sub{font-size:12px;color:var(--g400);}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:7px;padding:10px 20px;border:none;border-radius:var(--r);font-family:var(--fb);font-size:13px;font-weight:700;cursor:pointer;letter-spacing:0.02em;transition:all 0.15s;}
+.btn:hover{opacity:0.88;}
+.btn-o{background:var(--orange);color:#fff;box-shadow:0 2px 8px rgba(230,126,34,0.3);}
+.btn-n{background:var(--navy);color:#fff;box-shadow:0 2px 8px rgba(15,32,68,0.2);}
+.btn-out{background:var(--white);color:var(--navy);border:1.5px solid var(--g200);}
+.btn-out:hover{border-color:var(--orange);color:var(--orange);background:var(--o50);}
+.btn-sm{padding:7px 14px;font-size:12px;}
+.btn-lg{padding:15px 30px;font-size:15px;}
+.btn-full{width:100%;justify-content:center;display:flex;}
+.abar{display:flex;gap:8px;align-items:center;margin-bottom:24px;}
+.abar-sp{flex:1;}
+
+/* LAYOUT */
+.two-col{display:grid;grid-template-columns:1fr 320px;gap:22px;}
+.two-col-n{display:grid;grid-template-columns:1fr 270px;gap:22px;}
+
+/* PROGRESS */
+.pi{display:flex;align-items:flex-start;gap:14px;padding:13px 0;border-bottom:1px solid var(--g100);}
+.pi:last-child{border-bottom:none;}
+.pd{width:10px;height:10px;border-radius:50%;border:2px solid var(--g200);flex-shrink:0;margin-top:3px;}
+.pd.done{background:var(--green);border-color:var(--green);}
+.pd.pend{background:var(--o50);border-color:var(--orange);}
+.pl{font-size:14px;font-weight:700;color:var(--navy);margin-bottom:2px;}
+.ps{font-size:12px;color:var(--g400);}
+
+/* STATUS GRID */
+.sg{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;}
+.sc2{background:var(--g50);border:1px solid var(--g100);border-radius:var(--r);padding:13px 15px;}
+.sc2-l{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--g400);margin-bottom:6px;}
+.sc2-v{font-size:14px;font-weight:700;color:var(--navy);}
+
+/* BADGES */
+.bdg{display:inline-block;padding:4px 10px;font-size:10px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;border-radius:2px;}
+.b-red{background:var(--rpale);color:#7B1F17;}
+.b-ora{background:var(--opale);color:#8B4E0E;}
+.b-grn{background:var(--gpale);color:#0F4A28;}
+.b-nvy{background:var(--navy);color:#fff;}
+.b-gry{background:var(--g100);color:var(--g600);}
+
+/* RISK ROWS */
+.ri{border-left:4px solid;padding:13px 16px;margin-bottom:8px;}
+.ri-h{background:var(--rpale);border-color:var(--red);}
+.ri-m{background:var(--opale);border-color:var(--orange);}
+.ri-l{background:var(--g50);border-color:var(--g400);}
+.ri-sev{font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px;}
+.ri-title{font-size:14px;font-weight:700;color:var(--navy);margin-bottom:4px;}
+.ri-body{font-size:13px;color:var(--g600);line-height:1.6;}
+
+/* REPORT SECTIONS */
+.rs{border-bottom:1px solid var(--g100);padding:18px 0;}
+.rs:last-child{border-bottom:none;}
+.rs-head{display:flex;align-items:center;gap:18px;margin-bottom:10px;}
+.rs-num{font-family:var(--fd);font-size:34px;font-weight:900;color:var(--orange);line-height:1;width:44px;flex-shrink:0;}
+.rs-title{font-family:var(--fd);font-size:17px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:0.06em;}
+.rs-body{padding-left:62px;font-size:13px;color:var(--g600);line-height:1.7;}
+
+/* CLAUSE CARDS */
+.cc{border:1px solid var(--g100);border-radius:var(--r);margin-bottom:12px;overflow:hidden;box-shadow:var(--shadow-sm);}
+.cc-head{background:var(--navy);padding:11px 16px;display:flex;justify-content:space-between;align-items:center;}
+.cc-ref{font-size:13px;font-weight:700;color:#fff;}
+.cc-pg{font-size:11px;color:var(--orange);font-weight:600;}
+.cc-body{padding:14px 16px;}
+.cc-q{font-size:13px;color:var(--g600);line-height:1.6;border-left:3px solid var(--g200);padding-left:11px;margin-bottom:11px;font-style:italic;}
+.cc-ml{font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--orange);margin-bottom:3px;}
+.cc-mt{font-size:13px;color:var(--navy);line-height:1.5;}
+.cc-jmp{font-size:10px;font-weight:700;color:var(--orange);text-transform:uppercase;letter-spacing:0.08em;cursor:pointer;margin-top:9px;display:inline-block;}
+
+/* PDF VIEWER */
+.pdf-v{background:var(--g50);border:1px solid var(--g200);border-radius:var(--r);display:flex;flex-direction:column;min-height:460px;}
+.pdf-tb{background:var(--navy);padding:11px 16px;display:flex;align-items:center;border-radius:var(--r) var(--r) 0 0;}
+.pdf-fn{font-size:12px;color:rgba(255,255,255,0.7);font-weight:600;}
+.pdf-pg{font-size:10px;color:rgba(255,255,255,0.35);margin-left:auto;}
+.pdf-bd{flex:1;display:flex;align-items:center;justify-content:center;padding:40px;}
+.pdf-ph{text-align:center;}
+.pdf-ic{width:52px;height:66px;border:2px solid var(--g200);border-radius:3px;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;}
+.pdf-ic svg{width:22px;height:22px;stroke:var(--g400);fill:none;stroke-width:1.5;}
+
+/* DRAFT */
+.dta{width:100%;height:380px;padding:18px;border:1.5px solid var(--g200);border-radius:var(--r);font-family:var(--fb);font-size:14px;color:var(--navy);line-height:1.75;resize:vertical;outline:none;transition:border-color 0.15s,box-shadow 0.15s;}
+.dta:focus{border-color:var(--orange);box-shadow:0 0 0 3px rgba(230,126,34,0.1);}
+.mr{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--g100);font-size:13px;}
+.mr:last-child{border-bottom:none;}
+.ml{color:var(--g400);font-weight:500;}
+.mv{color:var(--navy);font-weight:700;}
+
+/* MISC */
+.dv{height:1px;background:var(--g100);margin:18px 0;}
+.info-n{background:var(--o50);border:1px solid rgba(230,126,34,0.25);border-radius:var(--r);padding:13px 16px;font-size:13px;color:#8B4E0E;display:flex;align-items:flex-start;gap:9px;margin-top:14px;}
+.warn-ico{width:17px;height:17px;border:2px solid #8B4E0E;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;font-size:10px;font-weight:900;color:#8B4E0E;}
+
+/* SCREEN POLISH */
+.case-strip{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;background:#fff;border:1px solid var(--g100);border-radius:var(--r-lg);padding:14px 18px;margin-bottom:20px;box-shadow:var(--shadow-sm);}
+.case-strip.dark{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);box-shadow:none;}
+.case-strip-l{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.case-kicker{font-size:10px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--g400);}
+.case-title{font-size:16px;font-weight:700;color:var(--navy);}
+.case-title.invert,.case-kicker.invert,.case-chip.invert,.case-meta.invert{color:#fff;}
+.case-chip{display:inline-flex;align-items:center;gap:7px;padding:6px 10px;border-radius:999px;background:var(--g50);border:1px solid var(--g100);font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--g600);}
+.case-chip-dot{width:7px;height:7px;border-radius:50%;background:var(--orange);}
+.case-strip-r{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.case-meta{font-size:11px;color:var(--g400);font-weight:600;}
+.hero-band{position:relative;overflow:hidden;background:linear-gradient(135deg,#fff 0%,#fff 54%,#f8efe4 100%);border:1px solid var(--g100);border-radius:var(--r-lg);padding:28px 30px;margin-bottom:22px;box-shadow:var(--shadow-md);}
+.hero-band::before{content:'';position:absolute;inset:auto -70px -80px auto;width:220px;height:220px;border-radius:50%;background:radial-gradient(circle,rgba(230,126,34,.16) 0%,rgba(230,126,34,0) 68%);}
+.hero-band::after{content:'';position:absolute;inset:-60px auto auto -80px;width:240px;height:240px;border-radius:50%;background:radial-gradient(circle,rgba(15,32,68,.06) 0%,rgba(15,32,68,0) 70%);}
+.hero-band > *{position:relative;z-index:1;}
+.hero-top{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;}
+.hero-copy{max-width:760px;}
+.hero-meta{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px;}
+.pill{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--g100);background:rgba(255,255,255,.75);color:var(--navy);}
+.pill-dot{width:8px;height:8px;border-radius:50%;background:var(--orange);box-shadow:0 0 0 4px rgba(230,126,34,.12);}
+.pill-soft{background:var(--o50);border-color:rgba(230,126,34,.22);color:#8B4E0E;}
+.pill-navy{background:var(--navy);border-color:var(--navy);color:#fff;}
+.section-card{border-radius:var(--r-lg);box-shadow:var(--shadow-md);}
+.section-card.featured{border-color:rgba(230,126,34,.18);box-shadow:var(--shadow-lg);}
+.card-lead{font-size:14px;color:var(--g400);line-height:1.6;margin:-2px 0 18px;}
+.helper{font-size:12px;color:var(--g400);line-height:1.55;}
+.project-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;}
+.upload-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-bottom:18px;}
+.uz{position:relative;border:1.5px dashed var(--g200);border-radius:var(--r-lg);padding:22px 20px 18px;text-align:left;cursor:pointer;background:linear-gradient(180deg,#fff 0%,var(--g50) 100%);transition:all 0.18s;min-height:170px;display:flex;flex-direction:column;justify-content:flex-end;}
+.uz:hover{transform:translateY(-2px);border-color:var(--orange);background:linear-gradient(180deg,#fff 0%,var(--o50) 100%);box-shadow:0 10px 24px rgba(230,126,34,.10);}
+.uz.ready{border-style:solid;border-color:rgba(26,107,58,.26);background:linear-gradient(180deg,#fff 0%,#f3fbf6 100%);}
+.uz.processing{border-color:rgba(230,126,34,.45);background:linear-gradient(180deg,#fff 0%,#fff7ef 100%);}
+.uz-badge{position:absolute;top:16px;right:16px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--g400);background:#fff;border:1px solid var(--g100);padding:5px 8px;border-radius:999px;}
+.uz.ready .uz-badge{color:var(--green);border-color:rgba(26,107,58,.18);background:#fff;}
+.uz.processing .uz-badge{color:#8B4E0E;border-color:rgba(230,126,34,.2);background:#fff;}
+.uz-ico{width:54px;height:54px;border:1.5px solid var(--g200);border-radius:14px;margin:0 0 18px;background:#fff;display:flex;align-items:center;justify-content:center;transition:border-color 0.15s,transform 0.15s,box-shadow 0.15s;}
+.uz-ico svg{width:22px;height:22px;stroke:var(--g400);fill:none;stroke-width:1.5;transition:stroke 0.15s;}
+.uz:hover .uz-ico{border-color:rgba(230,126,34,.4);transform:translateY(-1px);box-shadow:0 6px 14px rgba(15,32,68,.08);}
+.uz.ready .uz-ico{border-color:rgba(26,107,58,.3);background:#fff;box-shadow:0 8px 16px rgba(26,107,58,.08);}
+.uz.ready .uz-ico svg{stroke:var(--green);}
+.uz.processing .uz-ico{border-color:rgba(230,126,34,.3);}
+.uz.processing .uz-ico svg{stroke:var(--orange);}
+.uz-title{font-size:16px;font-weight:700;color:var(--navy);margin-bottom:6px;}
+.uz-sub{font-size:12px;color:var(--g400);line-height:1.55;max-width:26ch;}
+.file-line{display:flex;align-items:center;gap:8px;margin-top:14px;font-size:11px;font-weight:700;color:var(--navy);}
+.file-glyph{width:22px;height:22px;border-radius:7px;display:flex;align-items:center;justify-content:center;background:var(--navy);color:#fff;font-size:9px;letter-spacing:.08em;text-transform:uppercase;}
+.pulse{animation:pulseGlow 1.8s ease-in-out infinite;}
+.action-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+.cta-note{font-size:12px;color:var(--g400);}
+.progress-card{position:sticky;top:0;border-radius:var(--r-lg);background:linear-gradient(180deg,#13264f 0%,#0f2044 100%);border:none;box-shadow:var(--shadow-lg);}
+.progress-card .ct{color:rgba(255,255,255,.62);border-bottom-color:rgba(255,255,255,.08);}
+.progress-kicker{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.42);margin-bottom:12px;}
+.progress-stat{display:flex;align-items:flex-end;gap:10px;padding:14px 0 18px;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:8px;}
+.progress-stat-num{font-family:var(--fd);font-size:44px;line-height:.9;color:#fff;}
+.progress-stat-copy{font-size:12px;line-height:1.5;color:rgba(255,255,255,.6);max-width:18ch;}
+.progress-card .pi{border-bottom-color:rgba(255,255,255,.08);}
+.progress-card .pd{border-color:rgba(255,255,255,.22);}
+.progress-card .pl{color:#fff;}
+.progress-card .ps{color:rgba(255,255,255,.5);}
+.progress-card .pd.pend{background:rgba(230,126,34,.16);border-color:var(--orange);}
+.signal-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:16px;}
+.signal-card{padding:12px;border-radius:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);}
+.signal-label{font-size:9px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.42);margin-bottom:6px;}
+.signal-value{font-size:18px;font-weight:700;color:#fff;}
+.summary-shell{display:grid;gap:18px;}
+.summary-hero{position:relative;overflow:hidden;background:linear-gradient(135deg,#102247 0%,#16315f 62%,#254580 100%);border-radius:var(--r-lg);padding:30px 32px;box-shadow:var(--shadow-lg);color:#fff;}
+.summary-hero::before{content:'';position:absolute;right:-30px;top:-36px;width:220px;height:220px;border-radius:50%;background:radial-gradient(circle,rgba(230,126,34,.25) 0%,rgba(230,126,34,0) 68%);}
+.summary-hero::after{content:'';position:absolute;left:-90px;bottom:-110px;width:260px;height:260px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.09) 0%,rgba(255,255,255,0) 72%);}
+.summary-hero > *{position:relative;z-index:1;}
+.summary-hero-top{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;margin-bottom:22px;}
+.summary-label{font-size:10px;font-weight:700;letter-spacing:.28em;text-transform:uppercase;color:rgba(255,255,255,.56);margin-bottom:8px;}
+.summary-title{font-family:var(--fd);font-size:34px;font-weight:900;letter-spacing:.03em;text-transform:uppercase;line-height:1;margin-bottom:10px;}
+.summary-text{font-size:15px;line-height:1.75;color:rgba(255,255,255,.82);max-width:760px;}
+.summary-stamp{min-width:180px;padding:16px 18px;border-radius:14px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);backdrop-filter:blur(8px);}
+.summary-stamp .bdg{margin-bottom:10px;}
+.stamp-label{font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.46);margin-bottom:4px;}
+.stamp-value{font-size:14px;font-weight:700;color:#fff;}
+.summary-chip-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;}
+.summary-chip{display:inline-flex;align-items:center;gap:7px;padding:8px 11px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#fff;}
+.summary-chip-dot{width:7px;height:7px;border-radius:50%;background:var(--orange);}
+.summary-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;}
+.metric-card{padding:16px 16px 14px;border-radius:14px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);}
+.metric-card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:10px;}
+.metric-icon{width:38px;height:38px;border-radius:12px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;font-weight:900;}
+.metric-card .sc2-l{color:rgba(255,255,255,.48);margin-bottom:10px;}
+.metric-card .sc2-v{color:#fff;}
+.metric-card .bdg{box-shadow:none;}
+.recommend-card{background:linear-gradient(180deg,#fff 0%,#fcfaf7 100%);border-left:4px solid var(--orange);}
+.recommend-head{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;margin-bottom:14px;}
+.evidence-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;}
+.e-chip{display:inline-flex;align-items:center;gap:7px;padding:7px 10px;border-radius:999px;background:var(--g50);border:1px solid var(--g100);font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--g600);}
+.risks-card{padding-top:20px;}
+.risk-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+.ri{border-left:none;border-radius:12px;padding:16px 16px 15px;border:1px solid transparent;margin-bottom:0;box-shadow:var(--shadow-sm);}
+.ri-h{border-color:rgba(192,57,43,.16);}
+.ri-m{border-color:rgba(230,126,34,.18);}
+.ri-l{border-color:rgba(138,148,166,.18);}
+.ri-tags{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;}
+.ri-tag{display:inline-flex;align-items:center;padding:5px 8px;border-radius:999px;background:rgba(255,255,255,.66);border:1px solid rgba(15,32,68,.08);font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--g600);}
+.risk-footer{display:flex;justify-content:flex-end;margin-top:4px;}
+.report-shell{display:grid;gap:18px;}
+.report-meta{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;}
+.surface-dark{background:linear-gradient(135deg,#12264d 0%,#0f2044 100%);color:#fff;border-radius:var(--r-lg);padding:24px 26px;box-shadow:var(--shadow-lg);}
+.surface-dark .ct{color:rgba(255,255,255,.56);border-bottom-color:rgba(255,255,255,.1);}
+.source-shell{display:grid;gap:18px;}
+.draft-shell{display:grid;gap:18px;}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulseGlow{0%,100%{box-shadow:0 0 0 0 rgba(230,126,34,.18)}50%{box-shadow:0 0 0 8px rgba(230,126,34,0)}}
+
+@media (max-width: 1180px){
+  .project-grid,
+  .sg,
+  .summary-metrics,
+  .risk-grid,
+  .signal-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .two-col{grid-template-columns:1fr;}
+  .progress-card{position:relative;}
+}
+
+@media (max-width: 860px){
+  html,body{overflow:auto;height:auto;}
+  .app{height:auto;min-height:100vh;}
+  .sb{display:none;}
+  .sc-wrap,.mn,.sc{overflow:visible;}
+  .tb{padding:0 20px;}
+  .tb-title{font-size:15px;letter-spacing:1.5px;}
+  .tb-meta{display:none;}
+  .sc{padding:22px 18px 28px;}
+  .hero-band,
+  .summary-hero{padding:24px 20px;}
+  .hero-top,
+  .summary-hero-top{flex-direction:column;}
+  .project-grid,
+  .upload-grid,
+  .g2,
+  .g3,
+  .sg,
+  .summary-metrics,
+  .risk-grid,
+  .signal-grid,
+  .two-col-n{grid-template-columns:1fr;}
+  .abar{flex-wrap:wrap;}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- SIDEBAR -->
+<aside class="sb">
+  <div class="sb-brand">
+    <div class="sb-logo">Never Sign<span>™</span></div>
+    <div class="sb-tagline">Change Analysis Platform</div>
+  </div>
+  <div class="sb-div"></div>
+  <div class="sb-proj">
+    <div class="sb-proj-lbl">Active Project</div>
+    <div class="sb-proj-name">Project Alpha</div>
+    <div class="sb-proj-co">Contractor: BuildCorp</div>
+  </div>
+  <div class="sb-div"></div>
+  <div class="sb-nlbl">Analysis</div>
+  <nav class="sb-nav">
+    <div class="ni on" onclick="go('s1',this)">
+      <div class="ni-ico"><svg viewBox="0 0 12 12"><path d="M1 2h10M1 5h10M1 8h6"/></svg></div>New Analysis
+    </div>
+    <div class="ni" onclick="go('s2',this)">
+      <div class="ni-ico"><svg viewBox="0 0 12 12"><path d="M6 1l1.2 3.5H10.5l-2.8 2 1.1 3.5L6 8 3.2 10l1.1-3.5L1.5 4.5H4.8z"/></svg></div>Decision Summary<span class="ni-bdg">1</span>
+    </div>
+    <div class="ni" onclick="go('s3',this)">
+      <div class="ni-ico"><svg viewBox="0 0 12 12"><rect x="1" y="1" width="10" height="10" rx="1"/><path d="M3 4h6M3 6.5h6M3 9h4"/></svg></div>Report<span class="ni-bdg">12</span>
+    </div>
+    <div class="ni" onclick="go('s4',this)">
+      <div class="ni-ico"><svg viewBox="0 0 12 12"><path d="M2 9V3a1 1 0 011-1h4l3 3v4a1 1 0 01-1 1H3a1 1 0 01-1-1z"/><path d="M7 2v3h3"/></svg></div>Sources<span class="ni-bdg">4</span>
+    </div>
+    <div class="ni" onclick="go('s5',this)">
+      <div class="ni-ico"><svg viewBox="0 0 12 12"><path d="M1 3h10v7a1 1 0 01-1 1H2a1 1 0 01-1-1V3z"/><path d="M1 3l5 4 5-4"/></svg></div>Draft Response
+    </div>
+  </nav>
+  <div class="sb-foot">
+    <div class="sb-foot-txt">Never Sign Blind™<br>Confidential &middot; AI Analysis</div>
+  </div>
+</aside>
+
+<!-- MAIN AREA -->
+<div class="mn">
+  <header class="tb">
+    <div class="tb-l">
+      <div class="tb-title">Never Sign Blind™</div>
+      <div class="tb-sep"></div>
+      <div class="tb-crumb" id="crumb">New Analysis</div>
+    </div>
+    <div class="tb-r">
+      <div class="tb-meta">
+        <div class="tb-mini"><span class="tb-mini-dot"></span>Project Alpha</div>
+        <div class="tb-mini">CR-012</div>
+        <div class="tb-mini">4 Clauses Cited</div>
+      </div>
+      <div class="ai-bdg"><div class="ai-dot"></div>AI Ready</div>
+      <div class="usr">SA</div>
+    </div>
+  </header>
+
+  <div class="sc-wrap">
+
+    <!-- SCREEN 1: INTAKE -->
+    <div id="s1" class="sc on">
+      <div class="case-strip">
+        <div class="case-strip-l">
+          <div>
+            <div class="case-kicker">Current Matter</div>
+            <div class="case-title">Project Alpha · Proposed Variation Review</div>
+          </div>
+          <div class="case-chip"><span class="case-chip-dot"></span>Secure workspace</div>
+          <div class="case-chip">Awaiting uploads</div>
+        </div>
+        <div class="case-strip-r">
+          <div class="case-meta">Last analyzed: not started</div>
+          <div class="case-meta">Confidence available after review</div>
+        </div>
+      </div>
+      <div class="hero-band">
+        <div class="hero-top">
+          <div class="hero-copy">
+            <div class="ey">New Analysis</div>
+            <div class="pg-title">New Change Analysis</div>
+            <div class="pg-desc" style="margin-bottom:0;">Upload project documentation to perform an automated legal and financial risk assessment of the proposed variation.</div>
+          </div>
+          <div class="pill pill-navy"><span class="pill-dot"></span>Secure Intake</div>
+        </div>
+        <div class="hero-meta">
+          <div class="pill"><span class="pill-dot"></span>Contract + correspondence required</div>
+          <div class="pill pill-soft">AI-assisted legal and financial review</div>
+        </div>
+      </div>
+      <div class="two-col">
+        <div>
+          <div class="card section-card featured">
+            <div class="ct">Project Details</div>
+            <div class="card-lead">Set the analysis context before uploading the source documents.</div>
+            <div class="project-grid">
+              <div class="gr"><label class="fl">Project Name</label><input class="fi" placeholder="e.g., Skyline Tower Phase 2"/></div>
+              <div class="gr"><label class="fl">Contract Number</label><input class="fi" placeholder="e.g., BC-2024-881"/></div>
+              <div class="gr"><label class="fl">Change Request No.</label><input class="fi" placeholder="e.g., CR-012"/></div>
+            </div>
+          </div>
+          <div class="card section-card">
+            <div class="ct">Required Documents</div>
+            <div class="card-lead">Upload the contract package and the communications that triggered the change request.</div>
+            <div class="upload-grid">
+              <div class="uz ready">
+                <div class="uz-badge">Uploaded</div>
+                <div class="uz-ico"><svg viewBox="0 0 20 20"><path d="M10 14V6M6 10l4-4 4 4"/><path d="M3 16h14"/></svg></div>
+                <div class="uz-title">Upload Contract</div>
+                <div class="uz-sub">PDF or DOCX &middot; up to 50MB</div>
+                <div class="file-line"><span class="file-glyph">PDF</span>Prime Agreement v12.pdf</div>
+              </div>
+              <div class="uz processing">
+                <div class="uz-badge pulse">Processing</div>
+                <div class="uz-ico"><svg viewBox="0 0 20 20"><path d="M10 14V6M6 10l4-4 4 4"/><path d="M3 16h14"/></svg></div>
+                <div class="uz-title">Upload Correspondence</div>
+                <div class="uz-sub">PDF or DOCX &middot; Emails, RFIs, minutes</div>
+                <div class="file-line"><span class="file-glyph">DOC</span>RFI bundle - April 13.docx</div>
+              </div>
+            </div>
+            <div class="helper" style="text-align:center;margin-bottom:18px;">Requires contract and correspondence to generate report</div>
+            <div class="dv" style="margin-top:0;"></div>
+            <div class="action-row">
+              <button class="btn btn-o btn-full btn-lg" style="flex:1 1 280px;">Analyze Change &nbsp;&middot;&nbsp; Powered by Claude AI</button>
+              <div class="cta-note">Review starts once both files are attached.</div>
+            </div>
+          </div>
+          <div class="info-n"><div class="warn-ico">i</div>Your documents are analyzed securely. Files are processed to extract clauses and generate your risk assessment — never stored or shared.</div>
+        </div>
+        <div>
+          <div class="card progress-card">
+            <div class="ct">Workflow Progress</div>
+            <div class="progress-kicker">Analysis readiness</div>
+            <div class="progress-stat">
+              <div class="progress-stat-num">2/3</div>
+              <div class="progress-stat-copy">Steps completed before the report can be generated.</div>
+            </div>
+            <div class="pi"><div class="pd done"></div><div><div class="pl">Contract Uploaded</div><div class="ps">Prime Agreement v12.pdf</div></div></div>
+            <div class="pi"><div class="pd pend"></div><div><div class="pl">Correspondence</div><div class="ps">Parsing attachments and metadata...</div></div></div>
+            <div class="pi"><div class="pd"></div><div><div class="pl">Risk Score Generation</div><div class="ps">Queued when ingestion completes</div></div></div>
+            <div class="signal-grid">
+              <div class="signal-card"><div class="signal-label">Docs staged</div><div class="signal-value">2</div></div>
+              <div class="signal-card"><div class="signal-label">Expected output</div><div class="signal-value">5 views</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCREEN 2: DECISION SUMMARY -->
+    <div id="s2" class="sc">
+      <div class="abar"><button class="btn btn-out btn-sm" onclick="go('s1',document.querySelector('.ni'))">+ New Analysis</button><div class="abar-sp"></div></div>
+      <div class="summary-shell">
+        <div class="summary-hero">
+          <div class="case-strip dark" style="margin-bottom:22px;">
+            <div class="case-strip-l">
+              <div>
+                <div class="case-kicker invert">Matter Status</div>
+                <div class="case-title invert">Project Alpha · Contract BC-2024-881 · CR-012</div>
+              </div>
+              <div class="case-chip invert" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);">4 Clauses Cited</div>
+              <div class="case-chip invert" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);">Confidence: High</div>
+            </div>
+            <div class="case-strip-r">
+              <div class="case-meta invert">Analyzed 2026-04-13</div>
+              <div class="case-meta invert">Report ready for review</div>
+            </div>
+          </div>
+          <div class="summary-hero-top">
+            <div>
+              <div class="summary-label">Decision Summary</div>
+              <div class="summary-title">Material Scope Change</div>
+              <div class="summary-text">The request seeks to modify ownership of design documents from full Work-Made-For-Hire assignment to a limited project-use license. This is a material scope change that requires notice, negotiation, and likely compensation adjustment under Article 4.3 Claims procedures.</div>
+              <div class="summary-chip-row">
+                <div class="summary-chip"><span class="summary-chip-dot"></span>Backed by 4 source clauses</div>
+                <div class="summary-chip"><span class="summary-chip-dot"></span>Commercial exposure flagged</div>
+                <div class="summary-chip"><span class="summary-chip-dot"></span>Deadline-sensitive</div>
+              </div>
+            </div>
+            <div class="summary-stamp">
+              <span class="bdg b-red">Out of Scope</span>
+              <div class="stamp-label">Immediate read</div>
+              <div class="stamp-value">Notice and pricing review required</div>
+            </div>
+          </div>
+          <div class="summary-metrics">
+            <div class="metric-card"><div class="metric-card-head"><div class="sc2-l">Scope Status</div><div class="metric-icon">!</div></div><span class="bdg b-red">Out of Scope</span></div>
+            <div class="metric-card"><div class="metric-card-head"><div class="sc2-l">Extra Money?</div><div class="metric-icon">$</div></div><span class="bdg b-ora">Likely Yes</span></div>
+            <div class="metric-card"><div class="metric-card-head"><div class="sc2-l">Extra Time?</div><div class="metric-icon">T</div></div><span class="bdg b-grn">No</span></div>
+            <div class="metric-card"><div class="metric-card-head"><div class="sc2-l">Responsibility</div><div class="metric-icon">R</div></div><div class="sc2-v" style="font-size:12px;">Archer Western (Subcontractor)</div></div>
+            <div class="metric-card"><div class="metric-card-head"><div class="sc2-l">Notice Deadline</div><div class="metric-icon">D</div></div><div class="sc2-v">5 days / Art. 4.3</div></div>
+            <div class="metric-card"><div class="metric-card-head"><div class="sc2-l">Claimable Amount</div><div class="metric-icon">C</div></div><div class="sc2-v">TBD</div></div>
+          </div>
+        </div>
+        <div class="card section-card recommend-card">
+          <div class="recommend-head">
+            <div class="ct" style="margin-bottom:0;border-bottom:none;padding-bottom:0;">Strategic Recommendation</div>
+            <div class="e-chip">Recommended next move</div>
+          </div>
+          <p style="font-size:14px;color:var(--g600);line-height:1.7;">This request must follow Article 4.3 Claims procedures (Pages 6–7). Initial Notice must be titled "Initial Notice of Claim" within 5 days of foreseeable impact, followed by full Claim within 15 days including contractual basis and certification. Subcontractor should quantify the reduction in scope value and submit as a deductive change order. Contractor retains unilateral right to reject under Article 4.1 and may enforce original Work-Made-For-Hire terms.</p>
+          <div class="evidence-row">
+            <div class="e-chip">Source: Art. 4.3 Claims</div>
+            <div class="e-chip">Source: Art. 4.1 Changes</div>
+            <div class="e-chip">Evidence confidence: high</div>
+          </div>
+        </div>
+        <div class="card section-card risks-card">
+          <div class="ct">Key Risks</div>
+          <div class="risk-grid">
+            <div class="ri ri-h"><div class="ri-sev" style="color:var(--red);">High</div><div class="ri-title">Work-Made-For-Hire is Material Contract Term</div><div class="ri-body">Exhibit P Article 4.2 and Article 12.4 establish Work-Made-For-Hire as foundational pricing assumption per Section 1.1.2. Modification attempts after execution may be deemed waived.</div><div class="ri-tags"><span class="ri-tag">Pages 71-72</span><span class="ri-tag">Pricing assumption</span></div></div>
+            <div class="ri ri-h"><div class="ri-sev" style="color:var(--red);">High</div><div class="ri-title">No Written Authorization from Project Manager</div><div class="ri-body">Article 13.3 (Page 13) requires PM written approval for changes. Internal request to 'Legal Team' without Walsh Construction authorization is procedurally defective and creates no obligation.</div><div class="ri-tags"><span class="ri-tag">Page 13</span><span class="ri-tag">Approval risk</span></div></div>
+            <div class="ri ri-h"><div class="ri-sev" style="color:var(--red);">High</div><div class="ri-title">Strict Notice Requirements Not Followed</div><div class="ri-body">Article 4.3 (Page 6) requires Initial Notice titled 'Initial Notice of Claim' within 5 days. Current request does not comply with form, timing, or content requirements.</div><div class="ri-tags"><span class="ri-tag">Page 6</span><span class="ri-tag">Deadline</span></div></div>
+            <div class="ri ri-m"><div class="ri-sev" style="color:#8B4E0E;">Med</div><div class="ri-title">Unilateral Change Order Risk</div><div class="ri-body">Article 4.1 (Page 6) allows Contractor to execute unilateral change order binding on Subcontractor and enforce original IP terms with zero compensation adjustment.</div><div class="ri-tags"><span class="ri-tag">Page 6</span><span class="ri-tag">Contract leverage</span></div></div>
+            <div class="ri ri-m"><div class="ri-sev" style="color:#8B4E0E;">Med</div><div class="ri-title">Payment Withholding Authorized</div><div class="ri-body">Article 3.12 Right of Set Off allows withholding for damages from failure to perform. Refusal to deliver documents may trigger immediate withholding.</div><div class="ri-tags"><span class="ri-tag">Art. 3.12</span><span class="ri-tag">Cash flow</span></div></div>
+            <div class="ri ri-l"><div class="ri-sev" style="color:var(--g400);">Low</div><div class="ri-title">Design Liability Remains with Subcontractor</div><div class="ri-body">Exhibit P Article 2.10 states Owner approval does not transfer design liability regardless of ownership, undermining rationale for IP retention.</div><div class="ri-tags"><span class="ri-tag">Exhibit P</span><span class="ri-tag">Liability</span></div></div>
+          </div>
+        </div>
+        <div class="risk-footer"><button class="btn btn-o" onclick="go('s3',document.querySelectorAll('.ni')[2])">Save &amp; Generate Full Report &rarr;</button></div>
+      </div>
+    </div>
+
+    <!-- SCREEN 3: REPORT -->
+    <div id="s3" class="sc">
+      <div class="case-strip">
+        <div class="case-strip-l">
+          <div>
+            <div class="case-kicker">Report Workspace</div>
+            <div class="case-title">Project Alpha · Formal analysis output</div>
+          </div>
+          <div class="case-chip"><span class="case-chip-dot"></span>Export ready</div>
+          <div class="case-chip">12 findings referenced</div>
+        </div>
+        <div class="case-strip-r">
+          <div class="case-meta">Confidence: High</div>
+          <div class="case-meta">Last updated 2026-04-13</div>
+        </div>
+      </div>
+      <div class="abar">
+        <button class="btn btn-out btn-sm" onclick="go('s1',document.querySelector('.ni'))">+ New Analysis</button>
+        <button class="btn btn-out btn-sm">Regenerate</button>
+        <div class="abar-sp"></div>
+        <button class="btn btn-n btn-sm">Export PDF</button>
+      </div>
+      <div class="report-shell">
+      <div class="surface-dark">
+        <div class="ct">Executive Signals</div>
+        <div class="report-meta">
+          <div class="summary-chip"><span class="summary-chip-dot"></span>Out of Scope</div>
+          <div class="summary-chip"><span class="summary-chip-dot"></span>Fee impact likely</div>
+          <div class="summary-chip"><span class="summary-chip-dot"></span>4 supporting clauses</div>
+        </div>
+      </div>
+      <div class="card section-card" style="border-top:3px solid var(--orange);">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;">
+          <div>
+            <div class="ey">Never Sign Blind™</div>
+            <div class="pg-title" style="margin-bottom:5px;">Change Order Analysis Report</div>
+            <div style="font-size:13px;color:var(--g400);">Project 1 &nbsp;&middot;&nbsp; Contract 1 &nbsp;&middot;&nbsp; CR-1 &nbsp;&middot;&nbsp; Owner: Walsh Construction Co. II, LLC</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0;">
+            <span class="bdg b-gry">Draft</span>
+            <div style="font-size:12px;color:var(--g400);margin-top:8px;">Analyzed: 2026-04-13</div>
+          </div>
+        </div>
+        <div class="dv" style="margin:0 0 2px;"></div>
+
+        <div class="rs"><div class="rs-head"><div class="rs-num">01</div><div class="rs-title">Executive Summary</div></div><div class="rs-body">Archer Western Construction, LLC requests modification of design document ownership from Work-Made-For-Hire assignment to a limited project-use license. This constitutes a material scope reduction. The original contract pricing reflected full IP transfer under Exhibit P Article 4.2 and Article 12.4. The request does not comply with Article 4.3 Claims procedures and lacks written PM authorization under Article 13. No time extension is warranted.</div></div>
+
+        <div class="rs"><div class="rs-head"><div class="rs-num">02</div><div class="rs-title">Owner / Client Request</div></div><div class="rs-body">Archer Western seeks to replace Work-Made-For-Hire IP assignment with a limited project-use license for design documents. This revises scope by retaining ownership with the subcontractor and granting only project-specific use rights. It does not change physical work or schedule but materially reduces the ownership interest conveyed in the contract deliverables.</div></div>
+
+        <div class="rs"><div class="rs-head"><div class="rs-num">03</div><div class="rs-title">Position Assessment</div></div>
+          <div class="rs-body">
+            <div class="sg" style="margin-bottom:12px;">
+              <div class="sc2"><div class="sc2-l">Scope Status</div><span class="bdg b-red">Out of Scope</span></div>
+              <div class="sc2"><div class="sc2-l">Fee Position</div><span class="bdg b-ora">Likely Yes</span></div>
+              <div class="sc2"><div class="sc2-l">Time Position</div><span class="bdg b-grn">Likely No</span></div>
+            </div>
+            Retaining IP rights while delivering only a license is a material scope reduction — should be priced as a deductive change. No time impact is anticipated because the physical work and schedule remain unchanged.
+          </div>
+        </div>
+
+        <div class="rs"><div class="rs-head"><div class="rs-num">04</div><div class="rs-title">Key Contract Clauses</div></div>
+          <div class="rs-body">
+            <div class="cc"><div class="cc-head"><span class="cc-ref">Article 4.1 Changes</span><span class="cc-pg">Page 6</span></div><div class="cc-body"><div class="cc-q">Contractor has sole authority to approve or reject modifications. Contractor may execute unilateral change orders binding on Subcontractor.</div><div class="cc-ml">Why It Matters</div><div class="cc-mt">Walsh Construction controls whether this request is negotiable. If rejected, the subcontractor must perform under the original Work-Made-For-Hire terms with no compensation adjustment.</div></div></div>
+            <div class="cc"><div class="cc-head"><span class="cc-ref">Article 4.3 Claims</span><span class="cc-pg">Pages 6–7</span></div><div class="cc-body"><div class="cc-q">Initial Notice titled 'Initial Notice of Claim' required within 5 days of foreseeable impact. Full Claim within 15 days including contractual basis, cost/schedule impact, and certification.</div><div class="cc-ml">Why It Matters</div><div class="cc-mt">The current request does not comply with timing, titling, or content requirements. Non-compliance may waive any fee entitlement.</div></div></div>
+            <div class="cc"><div class="cc-head"><span class="cc-ref">Exhibit P Article 4.2 &amp; 12.4</span><span class="cc-pg">Pages 71–72</span></div><div class="cc-body"><div class="cc-q">Work-Made-For-Hire: all documents, designs, and deliverables are the exclusive property of the Owner upon creation.</div><div class="cc-ml">Why It Matters</div><div class="cc-mt">Foundational contract term affecting pricing. Any reduction in IP transfer is a scope reduction and must be priced as a deductive change.</div></div></div>
+          </div>
+        </div>
+
+        <div class="rs"><div class="rs-head"><div class="rs-num">06</div><div class="rs-title">Commercial Analysis</div></div>
+          <div class="rs-body">
+            <strong style="font-size:12px;text-transform:uppercase;letter-spacing:0.06em;color:var(--navy);display:block;margin-bottom:6px;">Fee</strong>
+            A fee adjustment is supportable in principle as a deductive change order. The subcontractor must quantify the value reduction between full IP transfer and a project-use license under Article 4.3 procedures. Pricing status: TBD.
+            <br><br>
+            <strong style="font-size:12px;text-transform:uppercase;letter-spacing:0.06em;color:var(--navy);display:block;margin-bottom:6px;">Time</strong>
+            No time extension supportable. Physical work, design schedule, and milestones remain unchanged. Schedule status: no extension warranted.
+          </div>
+        </div>
+
+        <div class="rs"><div class="rs-head"><div class="rs-num">10</div><div class="rs-title">Recommendation</div></div><div class="rs-body">If Walsh Construction is willing to negotiate: direct Archer Western to submit a compliant Article 4.3 Claim within 15 days quantifying the deductive change value, supported by contractual basis and certified by a senior official. Process as a deductive change order and obtain written PM approval under Article 13.3 before execution.<br><br>If declining: issue written rejection notice, prepare unilateral change order under Article 4.1 to enforce original terms, and invoke Article 3.12 Set Off rights if deliverables are withheld.</div></div>
+
+        <div style="border-top:1px solid var(--g100);padding-top:14px;display:flex;justify-content:space-between;margin-top:8px;">
+          <div style="font-size:12px;color:var(--g400);">Never Sign Blind™ &mdash; Confidential &nbsp;&middot;&nbsp; Proprietary AI Analysis</div>
+          <div style="font-size:12px;color:var(--g400);">Analyzed 2026-04-13</div>
+        </div>
+      </div>
+      </div>
+    </div>
+
+    <!-- SCREEN 4: SOURCES -->
+    <div id="s4" class="sc">
+      <div class="case-strip">
+        <div class="case-strip-l">
+          <div>
+            <div class="case-kicker">Evidence Review</div>
+            <div class="case-title">Source clauses and supporting citations</div>
+          </div>
+          <div class="case-chip"><span class="case-chip-dot"></span>4 findings linked</div>
+          <div class="case-chip">Viewer + evidence rail</div>
+        </div>
+        <div class="case-strip-r">
+          <div class="case-meta">Audit-ready traceability</div>
+        </div>
+      </div>
+      <div class="ey">Evidence</div>
+      <div class="pg-title">Sources</div>
+      <div class="pg-desc">Contract citations and document evidence used in this analysis.</div>
+      <div class="source-shell">
+      <div class="surface-dark">
+        <div class="ct">Evidence Signals</div>
+        <div class="report-meta">
+          <div class="summary-chip"><span class="summary-chip-dot"></span>4 clause matches</div>
+          <div class="summary-chip"><span class="summary-chip-dot"></span>Pages 6, 7, 13, 71-72</div>
+          <div class="summary-chip"><span class="summary-chip-dot"></span>Confidence: High</div>
+        </div>
+      </div>
+      <div class="two-col">
+        <div>
+          <div class="pdf-v">
+            <div class="pdf-tb">
+              <span class="pdf-fn">Archerwester_subcontract_contract.pdf</span>
+              <span class="pdf-pg">Page 1 of ~90</span>
+            </div>
+            <div class="pdf-bd">
+              <div class="pdf-ph">
+                <div class="pdf-ic"><svg viewBox="0 0 24 30"><rect x="2" y="1" width="20" height="28" rx="2"/><path d="M6 9h12M6 13h12M6 17h8"/></svg></div>
+                <div style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:5px;">PDF Viewer</div>
+                <div style="font-size:13px;color:var(--g400);margin-bottom:16px;">Upload a contract to view here</div>
+                <button class="btn btn-out btn-sm">Open Document</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="card">
+            <div class="ct" style="display:flex;align-items:center;gap:8px;">Citations &amp; Evidence <span class="bdg b-nvy">4 Findings</span></div>
+            <div class="cc"><div class="cc-head"><span class="cc-ref">Article 4.1 Changes</span><span class="cc-pg">Page 6</span></div><div class="cc-body"><div class="cc-q">Contractor has sole authority to approve modifications. May execute unilateral change orders binding on Subcontractor.</div><div class="cc-ml">Meaning</div><div class="cc-mt">Only Walsh Construction can authorize changes.</div><span class="cc-jmp">&#8599; Jump to Page 6</span></div></div>
+            <div class="cc"><div class="cc-head"><span class="cc-ref">Article 4.3 Claims</span><span class="cc-pg">Pages 6–7</span></div><div class="cc-body"><div class="cc-q">Initial Notice titled 'Initial Notice of Claim' within 5 days. Full Claim within 15 days.</div><div class="cc-ml">Meaning</div><div class="cc-mt">Strict notice governs all claims for time or money. Non-compliance may waive the claim.</div><span class="cc-jmp">&#8599; Jump to Page 6</span></div></div>
+            <div class="cc"><div class="cc-head"><span class="cc-ref">Exhibit P Art. 4.2 &amp; 12.4</span><span class="cc-pg">Pages 71–72</span></div><div class="cc-body"><div class="cc-q">All documents and deliverables are exclusive property of Owner upon creation (Work-Made-For-Hire).</div><div class="cc-ml">Meaning</div><div class="cc-mt">Full IP transfer was a foundational pricing assumption under Section 1.1.2.</div></div></div>
+            <div class="cc"><div class="cc-head"><span class="cc-ref">Article 13.3 Written Approval</span><span class="cc-pg">Page 13</span></div><div class="cc-body"><div class="cc-q">No modification is valid without written approval from Walsh Construction's Project Manager.</div><div class="cc-ml">Meaning</div><div class="cc-mt">Verbal agreements and internal legal requests do not bind the contractor.</div><span class="cc-jmp">&#8599; Jump to Page 13</span></div></div>
+          </div>
+        </div>
+      </div>
+      </div>
+    </div>
+
+    <!-- SCREEN 5: DRAFT RESPONSE -->
+    <div id="s5" class="sc">
+      <div class="case-strip">
+        <div class="case-strip-l">
+          <div>
+            <div class="case-kicker">Drafting Workspace</div>
+            <div class="case-title">Editable response built from the analysis</div>
+          </div>
+          <div class="case-chip"><span class="case-chip-dot"></span>Human review required</div>
+          <div class="case-chip">Grounded in uploaded evidence</div>
+        </div>
+        <div class="case-strip-r">
+          <div class="case-meta">Draft version: 1</div>
+          <div class="case-meta">Ready for export</div>
+        </div>
+      </div>
+      <div class="abar">
+        <button class="btn btn-out btn-sm" onclick="go('s1',document.querySelector('.ni'))">+ New Analysis</button>
+        <button class="btn btn-out btn-sm">Regenerate</button>
+        <div class="abar-sp"></div>
+        <button class="btn btn-out btn-sm">Save</button>
+        <button class="btn btn-out btn-sm">Copy</button>
+        <button class="btn btn-n btn-sm">Export PDF</button>
+      </div>
+      <div class="ey">Draft Response</div>
+      <div class="pg-title">Draft Response</div>
+      <div class="pg-desc">Claim Strategy &amp; Mitigation &nbsp;&middot;&nbsp; AI-Generated &middot; Editable</div>
+      <div class="draft-shell">
+      <div class="surface-dark">
+        <div class="ct">Draft Signals</div>
+        <div class="report-meta">
+          <div class="summary-chip"><span class="summary-chip-dot"></span>Backed by uploaded contract analysis</div>
+          <div class="summary-chip"><span class="summary-chip-dot"></span>Editable before send</div>
+          <div class="summary-chip"><span class="summary-chip-dot"></span>Clause references included</div>
+        </div>
+      </div>
+      <div class="two-col-n">
+        <div>
+          <div class="card">
+            <textarea class="dta">RE: Project 1, Contract 1 – Change Request 1 – Intellectual Property Ownership Modification
+
+Thank you for your submission dated April 13, 2026, requesting modification to the ownership terms for design documents under Contract 1. We have reviewed the request against the contract requirements, including Exhibit P Articles 4.2 and 12.4, and Article 13.3 governing change procedures.
+
+The Work-Made-For-Hire provision was a material term of the original agreement and formed part of the pricing assumptions established under Section 1.1.2. Any modification to intellectual property ownership constitutes a scope change that must follow the Article 4.3 Claims procedures, including submission of an Initial Notice of Claim within the specified timeframe, followed by a full Claim detailing the contractual basis, cost impact, and certification by a senior official.
+
+Additionally, Article 13.3 requires written authorization from the Project Manager for any change to be valid. At this time, we have not received a compliant claim submission or authorization to proceed with negotiations on this matter.
+
+We reserve all rights under the contract, including those set forth in Articles 4.1 and 3.12. Please advise how you wish to proceed, and whether you intend to submit a formal claim in accordance with Article 4.3. We remain available to discuss this matter further upon receipt of proper documentation and Project Manager direction.
+
+Sincerely,</textarea>
+          </div>
+          <div class="info-n"><div class="warn-ico">!</div>Review all content before sending. This draft is a starting point — verify all clause references and dates against your actual contract.</div>
+        </div>
+        <div>
+          <div class="card">
+            <div class="ct">About This Draft</div>
+            <div class="mr"><span class="ml">Project</span><span class="mv">Project 1</span></div>
+            <div class="mr"><span class="ml">Contract</span><span class="mv">Contract 1</span></div>
+            <div class="mr"><span class="ml">Change Request</span><span class="mv">CR-1</span></div>
+            <div class="mr"><span class="ml">Generated</span><span class="mv">2026-04-13</span></div>
+            <div class="dv"></div>
+            <p style="font-size:12px;color:var(--g400);line-height:1.6;">Generated from your uploaded contract analysis. All claims reference the uploaded documents only.</p>
+          </div>
+          <div class="card">
+            <div class="ct">Quick Actions</div>
+            <button class="btn btn-o btn-full" style="margin-bottom:10px;">Export as PDF</button>
+            <button class="btn btn-out btn-full" style="margin-bottom:10px;">Copy to Clipboard</button>
+            <button class="btn btn-out btn-full">Save Draft</button>
+          </div>
+        </div>
+      </div>
+      </div>
+    </div>
+
+  </div><!-- end sc-wrap -->
+</div><!-- end mn -->
+</div><!-- end app -->
+
+<script>
+const crumbs = {'s1':'New Analysis','s2':'Decision Summary','s3':'Report','s4':'Sources','s5':'Draft Response'};
+function go(id, el) {
+  document.querySelectorAll('.sc').forEach(s => s.classList.remove('on'));
+  document.querySelectorAll('.ni').forEach(n => n.classList.remove('on'));
+  document.getElementById(id).classList.add('on');
+  if (el) el.classList.add('on');
+  document.getElementById('crumb').textContent = crumbs[id] || '';
+}
+</script>
+</body>
+</html>
