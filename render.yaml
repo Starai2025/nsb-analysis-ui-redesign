@@ -1,8 +1,10 @@
 services:
   - type: web
-    name: never-sign-blind
-    runtime: node
-    buildCommand: npm install && npm run build
+    name: nsb-analysis-ui-redesign
+    env: node
+    region: oregon
+    plan: free
+    buildCommand: npm install
     startCommand: npm start
     envVars:
       - key: NODE_ENV
