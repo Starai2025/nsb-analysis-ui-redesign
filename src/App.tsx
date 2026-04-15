@@ -21,7 +21,7 @@ export default function App() {
 
       <div className={`min-h-screen bg-surface transition-opacity duration-500 ${appReady ? 'opacity-100' : 'opacity-0'}`}>
         <Sidebar />
-        <div className="ml-64 flex flex-col min-h-screen">
+        <div className="ml-64 flex min-h-screen flex-col bg-[linear-gradient(180deg,#f7f8fa_0%,#eef2f7_100%)]">
           <TopBar />
           <main className="flex-1 overflow-x-hidden">
             <Routes>

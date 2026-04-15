@@ -113,26 +113,61 @@ export default function IntakePage() {
   };
 
   return (
-    <div className="p-8 space-y-8 max-w-[1400px] mx-auto">
+    <div className="mx-auto max-w-[1380px] space-y-6 px-8 py-8">
       <input type="file" ref={contractInputRef}       className="hidden" onChange={(e) => handleFileChange(e, 'contract')}       accept=".pdf,.docx" />
       <input type="file" ref={correspondenceInputRef} className="hidden" onChange={(e) => handleFileChange(e, 'correspondence')} accept=".pdf,.docx" />
 
-      {/* Header */}
-      <div className="mb-8 flex justify-between items-start">
-        <div>
-          <h1 className="text-4xl font-extrabold text-on-surface tracking-tight mb-2 font-headline">New Change Analysis</h1>
-          <p className="text-on-surface-variant text-lg max-w-2xl font-medium opacity-80">
-            Upload project documentation to perform an automated legal and financial risk assessment of the proposed variation.
-          </p>
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+        <div className="flex flex-wrap items-center gap-3">
+          <div>
+            <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">Current Matter</div>
+            <div className="text-base font-bold text-on-surface">Project Alpha · Proposed Variation Review</div>
+          </div>
+          <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-on-surface-variant">
+            Secure workspace
+          </div>
+          <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-on-surface-variant">
+            Awaiting uploads
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-4 text-xs font-semibold text-slate-400">
+          <span>Last analyzed: not started</span>
+          <span>Confidence available after review</span>
         </div>
       </div>
 
-      {/* Error banner */}
+      <section className="relative overflow-hidden rounded-[28px] border border-slate-200 bg-[linear-gradient(135deg,#ffffff_0%,#ffffff_54%,#f8efe4_100%)] px-8 py-8 shadow-lg shadow-slate-900/5">
+        <div className="absolute -left-20 -top-16 h-56 w-56 rounded-full bg-slate-900/5 blur-3xl" />
+        <div className="absolute -bottom-20 -right-10 h-56 w-56 rounded-full bg-[#e67e22]/15 blur-3xl" />
+        <div className="relative flex flex-wrap items-start justify-between gap-6">
+          <div className="max-w-3xl">
+            <div className="mb-3 text-[10px] font-bold uppercase tracking-[0.3em] text-[#e67e22]">New Analysis</div>
+            <h1 className="font-headline text-5xl font-extrabold uppercase leading-none tracking-[0.02em] text-on-surface">
+              New Change Analysis
+            </h1>
+            <p className="mt-4 max-w-2xl text-base font-medium leading-7 text-on-surface-variant">
+              Upload project documentation to perform an automated legal and financial risk assessment of the proposed variation.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <div className="rounded-full border border-slate-200 bg-white/90 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.14em] text-on-surface">
+                Contract + correspondence required
+              </div>
+              <div className="rounded-full border border-[#e67e22]/20 bg-[#fef9f0] px-4 py-2 text-[11px] font-bold uppercase tracking-[0.14em] text-[#8b4e0e]">
+                AI-assisted legal and financial review
+              </div>
+            </div>
+          </div>
+          <div className="rounded-full bg-[#0f2044] px-4 py-2 text-[11px] font-bold uppercase tracking-[0.18em] text-white shadow-lg">
+            Secure Intake
+          </div>
+        </div>
+      </section>
+
       {error && (
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3 text-red-700 shadow-sm"
+          className="flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700 shadow-sm"
         >
           <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
           <div className="text-sm">
@@ -145,38 +180,40 @@ export default function IntakePage() {
         </motion.div>
       )}
 
-      <div className="grid grid-cols-12 gap-10">
-        <div className="col-span-8 flex flex-col gap-10">
+      <div className="grid grid-cols-12 gap-8">
+        <div className="col-span-8 flex flex-col gap-6">
 
-          {/* Project details */}
-          <section className="bg-white shadow-xl border border-slate-200 rounded-2xl overflow-hidden">
-            <div className="p-10 border-b border-slate-100">
-              <h2 className="text-xs font-bold uppercase tracking-[0.15em] text-on-surface mb-8">Project Details</h2>
-              <div className="grid grid-cols-2 gap-x-10 gap-y-8">
-                <div className="flex flex-col gap-3">
-                  <label className="text-[0.6875rem] font-bold uppercase tracking-widest text-on-surface">Project Name</label>
+          <section className="overflow-hidden rounded-[24px] border border-[#e67e22]/15 bg-white shadow-xl shadow-slate-900/5">
+            <div className="border-b border-slate-100 p-10">
+              <h2 className="mb-4 text-xs font-bold uppercase tracking-[0.18em] text-on-surface">Project Details</h2>
+              <p className="mb-8 max-w-2xl text-sm leading-6 text-on-surface-variant">
+                Set the analysis context before uploading the source documents.
+              </p>
+              <div className="grid grid-cols-3 gap-6">
+                <div className="flex flex-col gap-2.5">
+                  <label className="text-[11px] font-bold uppercase tracking-[0.14em] text-on-surface">Project Name</label>
                   <input
-                    className="bg-white border border-slate-300 rounded-md p-3.5 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all placeholder:text-slate-400"
+                    className="rounded-md border border-slate-300 bg-white p-3.5 text-sm text-on-surface outline-none transition-all placeholder:text-slate-400 focus:border-[#e67e22] focus:ring-4 focus:ring-[#e67e22]/10"
                     placeholder="e.g., Skyline Tower Phase 2"
                     type="text"
                     value={projectName}
                     onChange={(e) => setProjectName(e.target.value)}
                   />
                 </div>
-                <div className="flex flex-col gap-3">
-                  <label className="text-[0.6875rem] font-bold uppercase tracking-widest text-on-surface">Contract Number</label>
+                <div className="flex flex-col gap-2.5">
+                  <label className="text-[11px] font-bold uppercase tracking-[0.14em] text-on-surface">Contract Number</label>
                   <input
-                    className="bg-white border border-slate-300 rounded-md p-3.5 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all placeholder:text-slate-400"
+                    className="rounded-md border border-slate-300 bg-white p-3.5 text-sm text-on-surface outline-none transition-all placeholder:text-slate-400 focus:border-[#e67e22] focus:ring-4 focus:ring-[#e67e22]/10"
                     placeholder="e.g., BC-2024-881"
                     type="text"
                     value={contractNumber}
                     onChange={(e) => setContractNumber(e.target.value)}
                   />
                 </div>
-                <div className="col-span-2 flex flex-col gap-3">
-                  <label className="text-[0.6875rem] font-bold uppercase tracking-widest text-on-surface">Potential Change Request Number</label>
+                <div className="flex flex-col gap-2.5">
+                  <label className="text-[11px] font-bold uppercase tracking-[0.14em] text-on-surface">Potential Change Request Number</label>
                   <input
-                    className="bg-white border border-slate-300 rounded-md p-3.5 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all placeholder:text-slate-400"
+                    className="rounded-md border border-slate-300 bg-white p-3.5 text-sm text-on-surface outline-none transition-all placeholder:text-slate-400 focus:border-[#e67e22] focus:ring-4 focus:ring-[#e67e22]/10"
                     placeholder="e.g., CR-012"
                     type="text"
                     value={changeRequestId}
@@ -186,12 +223,13 @@ export default function IntakePage() {
               </div>
             </div>
 
-            {/* Document upload */}
-            <div className="p-10 bg-slate-50/30">
-              <h2 className="text-xs font-bold uppercase tracking-[0.15em] text-on-surface mb-8">Required Documents</h2>
+            <div className="bg-slate-50/35 p-10">
+              <h2 className="mb-4 text-xs font-bold uppercase tracking-[0.18em] text-on-surface">Required Documents</h2>
+              <p className="mb-8 max-w-2xl text-sm leading-6 text-on-surface-variant">
+                Upload the contract package and the communications that triggered the change request.
+              </p>
               <div className="grid grid-cols-2 gap-6">
 
-                {/* Contract upload zone */}
                 {uploaded.contract ? (
                   <div className="group relative flex flex-col items-center justify-center gap-4 p-8 border-2 border-dashed border-emerald-500 bg-emerald-50/30 rounded-xl transition-all">
                     <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
@@ -207,54 +245,62 @@ export default function IntakePage() {
                 ) : (
                   <button
                     onClick={() => contractInputRef.current?.click()}
-                    className="group flex flex-col items-center justify-center gap-4 p-8 border-2 border-dashed border-slate-300 bg-white hover:bg-primary/5 hover:border-primary rounded-xl transition-all"
+                    className="group relative flex min-h-[200px] flex-col justify-end rounded-[20px] border-[1.5px] border-dashed border-slate-300 bg-[linear-gradient(180deg,#ffffff_0%,#f7f8fa_100%)] p-6 text-left transition-all hover:-translate-y-0.5 hover:border-[#e67e22] hover:bg-[linear-gradient(180deg,#ffffff_0%,#fef9f0_100%)] hover:shadow-lg hover:shadow-[#e67e22]/10"
                   >
-                    <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 group-hover:bg-primary group-hover:text-white transition-all">
+                    <div className="absolute right-5 top-5 rounded-full border border-slate-200 bg-white px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                      Required
+                    </div>
+                    <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-500 transition-all group-hover:border-[#e67e22]/30 group-hover:text-[#e67e22]">
                       <FileUp size={24} />
                     </div>
-                    <div className="text-center">
-                      <p className="text-sm font-bold text-on-surface">Upload Contract</p>
-                      <p className="text-[11px] text-slate-500 mt-1">PDF or DOCX up to 50MB</p>
+                    <div>
+                      <p className="text-base font-bold text-on-surface">Upload Contract</p>
+                      <p className="mt-1 text-xs leading-5 text-slate-500">PDF or DOCX up to 50MB</p>
                     </div>
                   </button>
                 )}
 
-                {/* Correspondence upload zone */}
                 <button
                   onClick={() => correspondenceInputRef.current?.click()}
-                  className={`group flex flex-col items-center justify-center gap-4 p-8 border-2 border-dashed rounded-xl transition-all ${
+                  className={`group relative flex min-h-[200px] flex-col justify-end rounded-[20px] border-[1.5px] p-6 text-left transition-all ${
                     uploaded.correspondence
-                      ? 'border-emerald-500 bg-emerald-50/30'
-                      : 'border-slate-300 bg-white hover:bg-primary/5 hover:border-primary'
+                      ? 'border-emerald-300 bg-[linear-gradient(180deg,#ffffff_0%,#f3fbf6_100%)] shadow-lg shadow-emerald-500/5'
+                      : 'border-dashed border-slate-300 bg-[linear-gradient(180deg,#ffffff_0%,#fff7ef_100%)] hover:-translate-y-0.5 hover:border-[#e67e22] hover:shadow-lg hover:shadow-[#e67e22]/10'
                   }`}
                 >
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${
+                  <div className={`absolute right-5 top-5 rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] ${
                     uploaded.correspondence
-                      ? 'bg-emerald-100 text-emerald-600'
-                      : 'bg-slate-100 text-slate-500 group-hover:bg-primary group-hover:text-white'
+                      ? 'border-emerald-200 bg-white text-emerald-700'
+                      : 'border-[#e67e22]/20 bg-white text-[#8b4e0e]'
+                  }`}>
+                    {uploaded.correspondence ? 'Uploaded' : analyzing ? 'Processing' : 'Required'}
+                  </div>
+                  <div className={`mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border transition-all ${
+                    uploaded.correspondence
+                      ? 'border-emerald-200 bg-white text-emerald-600'
+                      : 'border-[#e67e22]/20 bg-white text-[#e67e22]'
                   }`}>
                     {uploaded.correspondence ? <CheckCircle2 size={24} /> : <Mail size={24} />}
                   </div>
-                  <div className="text-center">
-                    <p className="text-sm font-bold text-on-surface">
+                  <div>
+                    <p className="text-base font-bold text-on-surface">
                       {uploaded.correspondence ? correspondenceFile?.name ?? 'Correspondence Uploaded' : 'Upload Correspondence'}
                     </p>
-                    <p className="text-[11px] text-slate-500 mt-1">
+                    <p className="mt-1 text-xs leading-5 text-slate-500">
                       {uploaded.correspondence ? 'Successfully staged' : 'PDF or DOCX (Emails, RFIs, or minutes)'}
                     </p>
                   </div>
                 </button>
               </div>
 
-              {/* Analyze button */}
               <div className="mt-10 flex flex-col items-end gap-3">
                 <p className="text-[11px] font-medium text-slate-500">Requires contract and correspondence to generate report</p>
                 <button
                   onClick={handleAnalyze}
                   disabled={!uploaded.contract || !uploaded.correspondence || analyzing}
-                  className={`flex items-center gap-2 font-bold px-12 py-4 rounded-md transition-all shadow-lg ${
+                  className={`flex items-center gap-2 rounded-md px-12 py-4 font-bold transition-all shadow-lg ${
                     uploaded.contract && uploaded.correspondence && !analyzing
-                      ? 'bg-primary text-white hover:bg-primary-dim active:scale-95'
+                      ? 'bg-[#e67e22] text-white hover:opacity-95 active:scale-95'
                       : 'bg-slate-200 text-slate-400 cursor-not-allowed'
                   }`}
                 >
@@ -281,9 +327,8 @@ export default function IntakePage() {
             </div>
           </section>
 
-          {/* Info banner */}
-          <div className="p-8 bg-on-surface text-white rounded-xl flex items-start gap-5">
-            <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary shrink-0">
+          <div className="flex items-start gap-5 rounded-2xl bg-on-surface p-8 text-white shadow-xl shadow-slate-900/10">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#e67e22]/20 text-[#f39c12]">
               <Info size={20} />
             </div>
             <div>
@@ -295,41 +340,65 @@ export default function IntakePage() {
           </div>
         </div>
 
-        {/* Workflow sidebar */}
         <div className="col-span-4">
           <div className="sticky top-24 flex flex-col gap-6">
-            <section className="bg-white shadow-xl border border-slate-200 rounded-xl overflow-hidden">
-              <div className="p-6 border-b border-slate-50">
-                <h3 className="text-sm font-bold text-on-surface flex items-center gap-2">
-                  <span className="w-1.5 h-4 bg-primary rounded-full"></span>
-                  Workflow Progress
-                </h3>
+            <section className="overflow-hidden rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,#13264f_0%,#0f2044_100%)] shadow-2xl shadow-slate-900/15">
+              <div className="border-b border-white/8 p-6">
+                <h3 className="text-sm font-bold text-white">Workflow Progress</h3>
+                <p className="mt-3 text-[11px] font-bold uppercase tracking-[0.16em] text-white/40">Analysis readiness</p>
               </div>
-              <div className="p-8 flex flex-col gap-6 border-b border-slate-50">
+              <div className="border-b border-white/8 px-8 py-6">
+                <div className="flex items-end gap-3">
+                  <div className="font-headline text-5xl font-extrabold leading-none text-white">
+                    {uploaded.contract ? (uploaded.correspondence ? '2/3' : '1/3') : '0/3'}
+                  </div>
+                  <div className="max-w-[160px] pb-1 text-xs leading-5 text-white/60">
+                    Steps completed before the report can be generated.
+                  </div>
+                </div>
+              </div>
+              <div className="flex flex-col gap-6 p-8">
                 <div className="flex items-start gap-4">
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${uploaded.contract ? 'bg-emerald-500 text-white' : 'border-2 border-slate-200'}`}>
+                  <div className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${uploaded.contract ? 'bg-emerald-500 text-white' : 'border-2 border-white/20'}`}>
                     {uploaded.contract && <CheckCircle2 size={14} />}
                   </div>
                   <div>
-                    <p className="text-[11px] font-bold text-on-surface uppercase tracking-wider">Contract uploaded</p>
-                    <p className="text-[10px] text-slate-500">{uploaded.contract ? contractFile?.name : 'Awaiting file...'}</p>
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-white">Contract Uploaded</p>
+                    <p className="text-[10px] text-white/55">{uploaded.contract ? contractFile?.name : 'Awaiting file...'}</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-4">
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${uploaded.correspondence ? 'bg-emerald-500 text-white' : 'border-2 border-amber-400 bg-amber-50'}`}>
-                    {uploaded.correspondence ? <CheckCircle2 size={14} /> : <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />}
+                  <div className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${uploaded.correspondence ? 'bg-emerald-500 text-white' : 'border-2 border-[#e67e22] bg-[#e67e22]/15'}`}>
+                    {uploaded.correspondence ? <CheckCircle2 size={14} /> : <div className="h-1.5 w-1.5 rounded-full bg-[#e67e22] animate-pulse" />}
                   </div>
                   <div>
-                    <p className="text-[11px] font-bold text-on-surface uppercase tracking-wider">Correspondence</p>
-                    <p className="text-[10px] text-slate-500">{uploaded.correspondence ? correspondenceFile?.name : 'Awaiting documentation...'}</p>
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-white">Correspondence</p>
+                    <p className="text-[10px] text-white/55">
+                      {uploaded.correspondence
+                        ? correspondenceFile?.name
+                        : analyzing
+                          ? 'Parsing attachments and metadata...'
+                          : 'Awaiting documentation...'}
+                    </p>
                   </div>
                 </div>
-                <div className="flex items-start gap-4 opacity-40">
-                  <div className="w-6 h-6 rounded-full border-2 border-slate-200 shrink-0"></div>
+                <div className="flex items-start gap-4">
+                  <div className="mt-0.5 h-6 w-6 shrink-0 rounded-full border-2 border-white/20"></div>
                   <div>
-                    <p className="text-[11px] font-bold text-on-surface uppercase tracking-wider">Risk Score Generation</p>
-                    <p className="text-[10px] text-slate-500">Waiting for upload</p>
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-white">Risk Score Generation</p>
+                    <p className="text-[10px] text-white/55">{analyzing ? analysisStatus || 'Queued for analysis' : 'Waiting for upload'}</p>
                   </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 px-8 pb-8">
+                <div className="rounded-2xl border border-white/8 bg-white/6 p-4">
+                  <div className="text-[9px] font-bold uppercase tracking-[0.16em] text-white/40">Docs staged</div>
+                  <div className="mt-2 text-2xl font-bold text-white">{Number(Boolean(uploaded.contract)) + Number(Boolean(uploaded.correspondence))}</div>
+                </div>
+                <div className="rounded-2xl border border-white/8 bg-white/6 p-4">
+                  <div className="text-[9px] font-bold uppercase tracking-[0.16em] text-white/40">Expected output</div>
+                  <div className="mt-2 text-2xl font-bold text-white">5 views</div>
                 </div>
               </div>
             </section>

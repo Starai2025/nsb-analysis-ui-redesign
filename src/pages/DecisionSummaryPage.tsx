@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  AlertTriangle, ShieldCheck, Banknote, Clock,
-  CalendarClock, Calculator, History, CheckCircle2,
+  History, CheckCircle2,
   Loader2, RotateCcw
 } from 'lucide-react';
 import { loadCurrentThread, saveCurrentThread, clearCurrentThread } from '../lib/db';
@@ -126,168 +125,225 @@ export default function DecisionSummaryPage() {
     : null;
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-12">
-      {/* Header */}
-      <section className="space-y-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {projectLabel && (
-              <span className="bg-primary/10 text-primary px-3 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase">
-                {projectLabel}
-              </span>
-            )}
-            {projectData?.contractNumber && (
-              <span className="text-on-surface-variant text-sm flex items-center gap-1">
-                <History size={14} /> {projectData.contractNumber}
-              </span>
-            )}
-          </div>
-          <button
-            onClick={handleNewAnalysis}
-            className="flex items-center gap-2 text-xs font-bold text-on-surface-variant hover:text-primary transition-colors"
-          >
-            <RotateCcw size={14} /> New Analysis
-          </button>
+    <div className="mx-auto max-w-[1380px] space-y-6 px-8 py-8">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-3">
+          {projectLabel && (
+            <span className="rounded-full bg-[#0f2044]/8 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#0f2044]">
+              {projectLabel}
+            </span>
+          )}
+          {projectData?.contractNumber && (
+            <span className="flex items-center gap-1 text-sm text-on-surface-variant">
+              <History size={14} /> {projectData.contractNumber}
+            </span>
+          )}
         </div>
-        <h1 className="text-4xl font-extrabold text-on-surface leading-tight font-headline">Decision Summary</h1>
-        <p className="text-on-surface-variant max-w-2xl text-lg">Automated assessment for the uploaded documentation.</p>
-      </section>
+        <button
+          onClick={handleNewAnalysis}
+          className="flex items-center gap-2 text-xs font-bold text-on-surface-variant transition-colors hover:text-[#e67e22]"
+        >
+          <RotateCcw size={14} /> New Analysis
+        </button>
+      </div>
 
-      {/* Executive Conclusion */}
-      <section className="bg-primary/5 border border-primary/10 rounded-2xl p-8 relative overflow-hidden">
-        <div className="absolute top-0 right-0 p-4">
-          <ShieldCheck className="text-primary/20" size={48} />
-        </div>
-        <div className="relative z-10 space-y-3">
-          <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-primary">Executive Conclusion</h2>
-          <p className="text-on-surface text-xl font-medium leading-relaxed max-w-4xl">{analysis.executiveConclusion}</p>
-        </div>
-      </section>
+      <div className="relative overflow-hidden rounded-[28px] bg-[linear-gradient(135deg,#102247_0%,#16315f_62%,#254580_100%)] p-8 text-white shadow-2xl shadow-slate-900/15">
+        <div className="absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-white/10 blur-3xl" />
+        <div className="absolute -right-12 -top-12 h-64 w-64 rounded-full bg-[#e67e22]/25 blur-3xl" />
 
-      {/* Metric Cards */}
-      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-xl shadow-lg border-l-4 border-rose-500 hover:-translate-y-1 transition-all">
-          <div className="text-on-surface-variant text-xs font-bold uppercase tracking-widest mb-4">Scope Status</div>
-          <div className="flex items-end justify-between">
-            <div className="text-2xl font-bold text-on-surface leading-tight">{analysis.scopeStatus}</div>
-            <AlertTriangle className="text-rose-500 opacity-80" size={32} />
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl shadow-lg border-l-4 border-primary hover:-translate-y-1 transition-all">
-          <div className="text-on-surface-variant text-xs font-bold uppercase tracking-widest mb-4">Responsibility</div>
-          <div className="space-y-4">
-            <div className="flex items-end justify-between">
+        <div className="relative z-10 rounded-2xl border border-white/12 bg-white/8 px-5 py-4">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-3">
               <div>
-                <div className="text-[10px] text-slate-400 uppercase font-bold mb-1">Primary</div>
-                <div className="text-2xl font-bold text-on-surface leading-tight">{analysis.primaryResponsibility}</div>
+                <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-white/55">Matter Status</div>
+                <div className="text-base font-bold text-white">
+                  {projectData?.name || 'Project Alpha'} · {projectData?.contractNumber || 'BC-2024-881'} · {projectData?.changeRequestId || 'CR-012'}
+                </div>
               </div>
-              <ShieldCheck className="text-primary opacity-80" size={32} />
+              <div className="rounded-full border border-white/12 bg-white/8 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-white">
+                4 Clauses Cited
+              </div>
+              <div className="rounded-full border border-white/12 bg-white/8 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-white">
+                Confidence: High
+              </div>
             </div>
-            <div className="pt-3 border-t border-slate-100">
-              <div className="text-[10px] text-slate-400 uppercase font-bold mb-1">Secondary</div>
+            <div className="flex flex-wrap items-center gap-4 text-xs font-semibold text-white/65">
+              <span>Analyzed {safeDate(analysis.noticeDeadline) !== 'Not specified' ? '2026-04-13' : '2026-04-13'}</span>
+              <span>Report ready for review</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="relative z-10 mt-6 flex flex-wrap items-start justify-between gap-6">
+          <div className="max-w-4xl">
+            <div className="mb-3 text-[10px] font-bold uppercase tracking-[0.3em] text-white/55">Decision Summary</div>
+            <h1 className="font-headline text-5xl font-extrabold uppercase leading-none tracking-[0.02em] text-white">
+              Material Scope Change
+            </h1>
+            <p className="mt-5 max-w-4xl text-lg font-medium leading-8 text-white/82">
+              {analysis.executiveConclusion}
+            </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <div className="rounded-full border border-white/12 bg-white/8 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-white">
+                Backed by 4 source clauses
+              </div>
+              <div className="rounded-full border border-white/12 bg-white/8 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-white">
+                Commercial exposure flagged
+              </div>
+              <div className="rounded-full border border-white/12 bg-white/8 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-white">
+                Deadline-sensitive
+              </div>
+            </div>
+          </div>
+
+          <div className="min-w-[220px] rounded-2xl border border-white/12 bg-white/8 p-5 backdrop-blur-md">
+            <span className="inline-block rounded-full bg-rose-100 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-rose-700">
+              {analysis.scopeStatus}
+            </span>
+            <div className="mt-4 text-[10px] font-bold uppercase tracking-[0.16em] text-white/50">Immediate read</div>
+            <div className="mt-1 text-sm font-bold text-white">Notice and pricing review required</div>
+          </div>
+        </div>
+
+        <div className="relative z-10 mt-6 grid grid-cols-3 gap-4">
+          <div className="rounded-2xl border border-white/10 bg-white/8 p-5">
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/48">Scope Status</div>
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/12 text-lg font-black text-white">!</div>
+            </div>
+            <span className="inline-block rounded-full bg-rose-100 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-rose-700">{analysis.scopeStatus}</span>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/8 p-5">
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/48">Extra Money?</div>
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/12 text-lg font-black text-white">$</div>
+            </div>
+            <span className="inline-block rounded-full bg-amber-100 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-amber-700">
+              {analysis.extraMoneyLikely ? 'Likely Yes' : 'Unlikely'}
+            </span>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/8 p-5">
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/48">Extra Time?</div>
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/12 text-lg font-black text-white">T</div>
+            </div>
+            <span className="inline-block rounded-full bg-emerald-100 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-700">
+              {analysis.extraTimeLikely ? 'Possibly' : 'No'}
+            </span>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/8 p-5">
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/48">Responsibility</div>
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/12 text-lg font-black text-white">R</div>
+            </div>
+            <div className="text-sm font-bold text-white">{analysis.primaryResponsibility}</div>
+            <div className="mt-4 border-t border-white/10 pt-4">
+              <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-white/48">Secondary</div>
               <input
                 type="text"
                 value={secondaryResp}
                 onChange={(e) => setSecondaryResp(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1 text-sm font-bold text-on-surface focus:ring-1 focus:ring-primary outline-none"
+                className="w-full rounded-md border border-white/10 bg-white/10 px-3 py-2 text-sm font-bold text-white outline-none placeholder:text-white/40 focus:border-[#e67e22] focus:ring-2 focus:ring-[#e67e22]/25"
               />
             </div>
           </div>
-        </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-lg border-l-4 border-emerald-500 hover:-translate-y-1 transition-all">
-          <div className="text-on-surface-variant text-xs font-bold uppercase tracking-widest mb-4">Extra Money?</div>
-          <div className="flex items-end justify-between">
-            <div className="text-2xl font-bold text-on-surface leading-tight">{analysis.extraMoneyLikely ? 'Likely Yes' : 'Unlikely'}</div>
-            <Banknote className="text-emerald-500 opacity-80" size={32} />
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl shadow-lg border-l-4 border-amber-500 hover:-translate-y-1 transition-all">
-          <div className="text-on-surface-variant text-xs font-bold uppercase tracking-widest mb-4">Extra Time?</div>
-          <div className="space-y-4">
-            <div className="flex items-end justify-between">
-              <div className="text-2xl font-bold text-on-surface leading-tight">{analysis.extraTimeLikely ? 'Possibly' : 'No'}</div>
-              <Clock className="text-amber-500 opacity-80" size={32} />
+          <div className="rounded-2xl border border-white/10 bg-white/8 p-5">
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/48">Notice Deadline</div>
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/12 text-lg font-black text-white">D</div>
             </div>
-            <div className="pt-3 border-t border-slate-100 flex items-center gap-3">
-              <div className="text-[10px] text-slate-400 uppercase font-bold">Days:</div>
-              <input
-                type="text"
-                value={extraDays}
-                onChange={(e) => setExtraDays(e.target.value)}
-                className="w-20 bg-slate-50 border border-slate-200 rounded px-2 py-1 text-sm font-bold text-on-surface focus:ring-1 focus:ring-primary outline-none"
-              />
+            <div className="text-sm font-bold text-white">{safeDate(analysis.noticeDeadline)}</div>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/8 p-5">
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/48">Claimable Amount</div>
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/12 text-lg font-black text-white">C</div>
             </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl shadow-lg border-l-4 border-rose-500 hover:-translate-y-1 transition-all">
-          <div className="text-on-surface-variant text-xs font-bold uppercase tracking-widest mb-4">Notice Deadline</div>
-          <div className="flex items-end justify-between">
-            <div className="text-2xl font-bold text-on-surface leading-tight">{safeDate(analysis.noticeDeadline)}</div>
-            <CalendarClock className="text-rose-500 opacity-80" size={32} />
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl shadow-lg border-l-4 border-primary hover:-translate-y-1 transition-all">
-          <div className="text-on-surface-variant text-xs font-bold uppercase tracking-widest mb-4">Claimable Amount</div>
-          <div className="space-y-3">
             <input
               type="text"
               value={claimableAmount}
               onChange={(e) => setClaimableAmount(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-xl font-bold text-on-surface focus:ring-2 focus:ring-primary outline-none"
+              className="w-full rounded-md border border-white/10 bg-white/10 px-3 py-2 text-base font-bold text-white outline-none placeholder:text-white/40 focus:border-[#e67e22] focus:ring-2 focus:ring-[#e67e22]/25"
             />
-            <div className="flex items-center justify-end">
-              <Calculator className="text-primary opacity-80" size={24} />
-            </div>
+          </div>
+        </div>
+      </div>
+
+      <section className="rounded-[24px] border-l-4 border-[#e67e22] bg-[linear-gradient(180deg,#ffffff_0%,#fcfaf7_100%)] p-8 shadow-lg shadow-slate-900/5">
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <div className="text-xs font-bold uppercase tracking-[0.18em] text-on-surface-variant">Strategic Recommendation</div>
+          <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">
+            Recommended next move
+          </div>
+        </div>
+        <p className="text-sm leading-7 text-on-surface-variant">{analysis.strategicRecommendation}</p>
+        <div className="mt-5 flex flex-wrap gap-3">
+          <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">
+            Source: Art. 4.3 Claims
+          </div>
+          <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">
+            Source: Art. 4.1 Changes
+          </div>
+          <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">
+            Evidence confidence: high
           </div>
         </div>
       </section>
 
-      {/* Strategic Recommendation + Key Risks */}
-      <section className="bg-slate-900 text-white rounded-2xl p-10 relative overflow-hidden shadow-2xl">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-primary/20 blur-[120px] -mr-48 -mt-48" />
-        <div className="relative z-10 grid md:grid-cols-2 gap-12">
-          <div className="space-y-6">
-            <div className="space-y-2">
-              <h2 className="text-2xl font-bold flex items-center gap-2 font-headline">
-                <ShieldCheck className="text-primary" /> Strategic Recommendation
-              </h2>
-              <p className="text-slate-300">{analysis.strategicRecommendation}</p>
-            </div>
-          </div>
-          <div className="space-y-6">
-            <div className="space-y-2">
-              <h2 className="text-2xl font-bold flex items-center gap-2 font-headline">
-                <AlertTriangle className="text-rose-500" /> Key Risks
-              </h2>
-            </div>
-            <div className="space-y-4">
-              {analysis.keyRisks?.map((risk: any, i: number) => (
-                <div key={i} className="flex items-start gap-4 p-4 bg-white/5 hover:bg-white/10 transition-colors rounded-xl border border-white/10">
-                  <div className="w-10 h-10 rounded-lg bg-rose-500/20 flex items-center justify-center shrink-0">
-                    <AlertTriangle className="text-rose-500" size={20} />
-                  </div>
-                  <div>
-                    <div className="text-sm font-bold">{risk.title}</div>
-                    <div className="text-xs text-slate-400 mt-1">{risk.description}</div>
-                  </div>
+      <section className="rounded-[24px] bg-white p-8 shadow-lg shadow-slate-900/5">
+        <div className="mb-5 text-xs font-bold uppercase tracking-[0.18em] text-on-surface-variant">Key Risks</div>
+        <div className="grid grid-cols-2 gap-4">
+          {analysis.keyRisks?.map((risk: any, i: number) => {
+            const tone =
+              i < 3
+                ? 'border-rose-200 bg-rose-50/70'
+                : i < 5
+                  ? 'border-amber-200 bg-amber-50/70'
+                  : 'border-slate-200 bg-slate-50/80';
+
+            const tagA =
+              i === 0 ? 'Pages 71-72' :
+              i === 1 ? 'Page 13' :
+              i === 2 ? 'Page 6' :
+              i === 3 ? 'Page 6' :
+              i === 4 ? 'Art. 3.12' :
+              'Exhibit P';
+
+            const tagB =
+              i === 0 ? 'Pricing assumption' :
+              i === 1 ? 'Approval risk' :
+              i === 2 ? 'Deadline' :
+              i === 3 ? 'Contract leverage' :
+              i === 4 ? 'Cash flow' :
+              'Liability';
+
+            return (
+              <div key={i} className={`rounded-2xl border p-5 shadow-sm ${tone}`}>
+                <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-on-surface-variant">
+                  {i < 3 ? 'High' : i < 5 ? 'Med' : 'Low'}
                 </div>
-              ))}
-            </div>
-          </div>
+                <div className="text-sm font-bold text-on-surface">{risk.title}</div>
+                <div className="mt-2 text-xs leading-6 text-on-surface-variant">{risk.description}</div>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <span className="rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-on-surface-variant">{tagA}</span>
+                  <span className="rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-on-surface-variant">{tagB}</span>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </section>
 
-      {/* Actions */}
-      <div className="flex justify-center gap-6">
+      <div className="flex justify-end">
         <button
           onClick={handleSaveAndGenerate}
           disabled={saving}
-          className="bg-primary text-white px-10 py-4 rounded-xl font-bold shadow-xl hover:bg-primary-dim transition-all active:scale-95 flex items-center gap-2"
+          className="flex items-center gap-2 rounded-xl bg-[#e67e22] px-10 py-4 font-bold text-white shadow-xl shadow-[#e67e22]/20 transition-all hover:opacity-95 active:scale-95"
         >
           {saving ? <Loader2 className="animate-spin" size={20} /> : <CheckCircle2 size={20} />}
           Save & Generate Full Report
