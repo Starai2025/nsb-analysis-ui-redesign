@@ -1108,7 +1108,7 @@ Rules:
     const vite = await createViteServer({ server: { middlewareMode: true }, appType: "spa" });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), "dist");
+    const distPath = path.join(__dirname, "dist");
     try {
       await fs.access(distPath);
       app.use(express.static(distPath));
