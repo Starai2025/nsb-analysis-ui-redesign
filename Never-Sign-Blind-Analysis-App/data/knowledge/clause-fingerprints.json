@@ -1,0 +1,806 @@
+{
+  "version": "stage_2",
+  "record_count": 50,
+  "records": [
+    {
+      "id": "PAY-PAYIFPAID-001",
+      "title": "Pay-if-paid condition precedent",
+      "severity": "CRITICAL",
+      "fingerprints": [
+        "pay if paid",
+        "pay-if-paid condition precedent"
+      ],
+      "trigger_phrases": [
+        "pay-if-paid condition precedent",
+        "pay if paid"
+      ],
+      "plain_english": "If the owner never pays, you may never get paid.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "PAY-PAYWHENPAID-002",
+      "title": "Pay-when-paid with outside backstop",
+      "severity": "MED",
+      "fingerprints": [
+        "pay when paid backstop",
+        "pay-when-paid with outside backstop"
+      ],
+      "trigger_phrases": [
+        "pay-when-paid with outside backstop",
+        "pay when paid backstop"
+      ],
+      "plain_english": "Payment may wait briefly on owner funds, but a fixed outside deadline still protects you.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "PAY-RETAINAGE-003",
+      "title": "Retainage tied to project closeout",
+      "severity": "HIGH",
+      "fingerprints": [
+        "retainage release",
+        "retainage tied to project closeout"
+      ],
+      "trigger_phrases": [
+        "retainage tied to project closeout",
+        "retainage release"
+      ],
+      "plain_english": "A portion of earned money is withheld until total project closeout instead of your own completion.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "PAY-SETOFF-004",
+      "title": "Open-ended setoff or backcharge rights",
+      "severity": "HIGH",
+      "fingerprints": [
+        "setoff backcharge",
+        "open-ended setoff or backcharge rights"
+      ],
+      "trigger_phrases": [
+        "open-ended setoff or backcharge rights",
+        "setoff backcharge"
+      ],
+      "plain_english": "The contractor can deduct disputed amounts from current payments and hit cash immediately.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "PAY-CONDPREC-005",
+      "title": "Multiple conditions precedent to payment",
+      "severity": "HIGH",
+      "fingerprints": [
+        "conditions precedent",
+        "multiple conditions precedent to payment"
+      ],
+      "trigger_phrases": [
+        "multiple conditions precedent to payment",
+        "conditions precedent"
+      ],
+      "plain_english": "Payment does not become due until multiple upstream, paperwork, or funding conditions are satisfied.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "PAY-FINALPAY-006",
+      "title": "Final payment closeout package",
+      "severity": "MED",
+      "fingerprints": [
+        "final payment closeout",
+        "final payment closeout package"
+      ],
+      "trigger_phrases": [
+        "final payment closeout package",
+        "final payment closeout"
+      ],
+      "plain_english": "Final payment depends on objective closeout documents such as releases, insurance, and final applications.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "PAY-INTEREST-007",
+      "title": "Late payment interest",
+      "severity": "LOW",
+      "fingerprints": [
+        "late payment interest",
+        "late payment interest"
+      ],
+      "trigger_phrases": [
+        "late payment interest",
+        "late payment interest"
+      ],
+      "plain_english": "If payment is late, interest starts after the grace period and improves collection leverage.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "PAY-LIENWAIVER-008",
+      "title": "Lien waivers and bond releases as payment condition",
+      "severity": "MED",
+      "fingerprints": [
+        "lien waiver releases",
+        "lien waivers and bond releases as payment condition"
+      ],
+      "trigger_phrases": [
+        "lien waivers and bond releases as payment condition",
+        "lien waiver releases"
+      ],
+      "plain_english": "Payment may require waivers, releases, or surety consent; fair only if sequenced correctly.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "CLM-NOTICE-009",
+      "title": "Short claim notice deadline",
+      "severity": "HIGH",
+      "fingerprints": [
+        "claim notice deadline",
+        "short claim notice deadline"
+      ],
+      "trigger_phrases": [
+        "short claim notice deadline",
+        "claim notice deadline"
+      ],
+      "plain_english": "Miss the notice window and you may lose the claim even if the underlying issue is real.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "CHG-ORDER-010",
+      "title": "Written change-order process",
+      "severity": "MED",
+      "fingerprints": [
+        "change order notice",
+        "written change-order process"
+      ],
+      "trigger_phrases": [
+        "written change-order process",
+        "change order notice"
+      ],
+      "plain_english": "Extra work should follow a written process, but overly rigid notice rules become forfeiture traps.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "DEL-NODFD-011",
+      "title": "No-damages-for-delay or time-only relief",
+      "severity": "HIGH",
+      "fingerprints": [
+        "no damages for delay",
+        "no-damages-for-delay or time-only relief"
+      ],
+      "trigger_phrases": [
+        "no-damages-for-delay or time-only relief",
+        "no damages for delay"
+      ],
+      "plain_english": "Delay costs may be unrecoverable even when the downstream party did not cause the entire delay.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "DEL-LD-012",
+      "title": "Liquidated damages tied to delay",
+      "severity": "HIGH",
+      "fingerprints": [
+        "liquidated damages",
+        "liquidated damages tied to delay"
+      ],
+      "trigger_phrases": [
+        "liquidated damages tied to delay",
+        "liquidated damages"
+      ],
+      "plain_english": "Delay can trigger preset charges that may exceed the lower-tier party\u2019s fair share of responsibility.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "DEL-SUBCAP-013",
+      "title": "Delay-liability sub-cap within aggregate cap",
+      "severity": "MED",
+      "fingerprints": [
+        "delay liability subcap",
+        "delay-liability sub-cap within aggregate cap"
+      ],
+      "trigger_phrases": [
+        "delay-liability sub-cap within aggregate cap",
+        "delay liability subcap"
+      ],
+      "plain_english": "The form splits delay risk into separate buckets and may still preserve broad offset rights.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "FLOW-B2B-014",
+      "title": "Broad back-to-back or upstream pass-through",
+      "severity": "HIGH",
+      "fingerprints": [
+        "back to back",
+        "broad back-to-back or upstream pass-through"
+      ],
+      "trigger_phrases": [
+        "broad back-to-back or upstream pass-through",
+        "back to back"
+      ],
+      "plain_english": "You inherit prime-contract risk you did not negotiate unless the flow-down is expressly limited.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "FLOW-EQR-015",
+      "title": "Equivalent project relief tied to upstream recovery",
+      "severity": "HIGH",
+      "fingerprints": [
+        "equivalent project relief",
+        "equivalent project relief tied to upstream recovery"
+      ],
+      "trigger_phrases": [
+        "equivalent project relief tied to upstream recovery",
+        "equivalent project relief"
+      ],
+      "plain_english": "Your relief depends on whether the upper tier recovers upstream, which can wipe out valid downstream claims.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "FLOW-REVIEW-016",
+      "title": "Acknowledgment of prime-contract review and risk",
+      "severity": "HIGH",
+      "fingerprints": [
+        "assumption of prime contract risk",
+        "acknowledgment of prime-contract review and risk"
+      ],
+      "trigger_phrases": [
+        "acknowledgment of prime-contract review and risk",
+        "assumption of prime contract risk"
+      ],
+      "plain_english": "The contract says you already reviewed and accepted upstream risks, even if the upstream docs were incomplete or redacted.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "QTY-GROWTH-017",
+      "title": "Designer liability for quantity growth",
+      "severity": "HIGH",
+      "fingerprints": [
+        "quantity growth liability",
+        "designer liability for quantity growth"
+      ],
+      "trigger_phrases": [
+        "designer liability for quantity growth",
+        "quantity growth liability"
+      ],
+      "plain_english": "Normal design development can be reframed as cost-growth fault unless tied back to the professional standard of care.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "QTY-BIDDEV-018",
+      "title": "Deviation from bid or preliminary design",
+      "severity": "MED",
+      "fingerprints": [
+        "deviation from bid design",
+        "deviation from bid or preliminary design"
+      ],
+      "trigger_phrases": [
+        "deviation from bid or preliminary design",
+        "deviation from bid design"
+      ],
+      "plain_english": "The lower tier is pressured to keep the final design close to early bid assumptions even when maturation is normal.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "REL-UPSTREAM-019",
+      "title": "Right to rely on owner/design-builder information",
+      "severity": "LOW",
+      "fingerprints": [
+        "reliance on upstream information",
+        "right to rely on owner/design-builder information"
+      ],
+      "trigger_phrases": [
+        "right to rely on owner/design-builder information",
+        "reliance on upstream information"
+      ],
+      "plain_english": "The downstream designer should be able to rely on owner or design-builder inputs without independently re-verifying everything.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "ADMIN-PERMITS-020",
+      "title": "Allocation of permits, approvals, and licenses",
+      "severity": "MED",
+      "fingerprints": [
+        "permit responsibility",
+        "allocation of permits, approvals, and licenses"
+      ],
+      "trigger_phrases": [
+        "allocation of permits, approvals, and licenses",
+        "permit responsibility"
+      ],
+      "plain_english": "The contract should specify exactly which permits you obtain and which the upper tier or owner handles.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "STD-SOC-021",
+      "title": "Professional standard of care",
+      "severity": "LOW",
+      "fingerprints": [
+        "standard of care",
+        "professional standard of care"
+      ],
+      "trigger_phrases": [
+        "professional standard of care",
+        "standard of care"
+      ],
+      "plain_english": "The professional is judged by ordinary skill and care, not perfection or strict liability.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "STD-NOWAR-022",
+      "title": "No warranty or guarantee of professional services",
+      "severity": "LOW",
+      "fingerprints": [
+        "no warranty or guarantee",
+        "no warranty or guarantee of professional services"
+      ],
+      "trigger_phrases": [
+        "no warranty or guarantee of professional services",
+        "no warranty or guarantee"
+      ],
+      "plain_english": "The design professional does not guarantee outcomes or warrant perfect results.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "STD-LAWCHG-023",
+      "title": "Adjustment for changes in legal requirements",
+      "severity": "LOW",
+      "fingerprints": [
+        "legal requirements change adjustment",
+        "adjustment for changes in legal requirements"
+      ],
+      "trigger_phrases": [
+        "adjustment for changes in legal requirements",
+        "legal requirements change adjustment"
+      ],
+      "plain_english": "If laws change after contract signing, the downstream party should receive time or fee adjustment.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "CPS-SCOPE-024",
+      "title": "Construction-phase services scope boundaries",
+      "severity": "MED",
+      "fingerprints": [
+        "construction phase services scope",
+        "construction-phase services scope boundaries"
+      ],
+      "trigger_phrases": [
+        "construction-phase services scope boundaries",
+        "construction phase services scope"
+      ],
+      "plain_english": "The contract should say what post-design construction support is included and what becomes an extra service.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "CPS-PAYAPP-025",
+      "title": "Limited role in reviewing applications for payment",
+      "severity": "LOW",
+      "fingerprints": [
+        "payment application review limits",
+        "limited role in reviewing applications for payment"
+      ],
+      "trigger_phrases": [
+        "limited role in reviewing applications for payment",
+        "payment application review limits"
+      ],
+      "plain_english": "Recommending payment is not the same as certifying exhaustive inspection, means and methods, or downstream payment chains.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "CPS-SITEVISIT-026",
+      "title": "Express numeric limit on site visits",
+      "severity": "LOW",
+      "fingerprints": [
+        "site visit limits",
+        "express numeric limit on site visits"
+      ],
+      "trigger_phrases": [
+        "express numeric limit on site visits",
+        "site visit limits"
+      ],
+      "plain_english": "Only a set number of site visits are included; excess visits become additional services.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "CPS-INSPECT-027",
+      "title": "No exhaustive or continuous inspection duty",
+      "severity": "LOW",
+      "fingerprints": [
+        "exhaustive inspection disclaimer",
+        "no exhaustive or continuous inspection duty"
+      ],
+      "trigger_phrases": [
+        "no exhaustive or continuous inspection duty",
+        "exhaustive inspection disclaimer"
+      ],
+      "plain_english": "The design professional is not acting as a full-time inspector or means-and-methods guarantor.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "CPS-SAFETY-028",
+      "title": "Safety obligations allocated away from designer unless expressly assumed",
+      "severity": "HIGH",
+      "fingerprints": [
+        "safety role allocation",
+        "safety obligations allocated away from designer unless expressly assumed"
+      ],
+      "trigger_phrases": [
+        "safety obligations allocated away from designer unless expressly assumed",
+        "safety role allocation"
+      ],
+      "plain_english": "Pushing site safety and means/methods risk onto the designer creates a major insurability problem.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "TERM-CONV-029",
+      "title": "Upper-tier right to terminate for convenience",
+      "severity": "MED",
+      "fingerprints": [
+        "termination for convenience",
+        "upper-tier right to terminate for convenience"
+      ],
+      "trigger_phrases": [
+        "upper-tier right to terminate for convenience",
+        "termination for convenience"
+      ],
+      "plain_english": "Convenience termination is tolerable only if the settlement formula is objective and complete.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "TERM-SETTLE-030",
+      "title": "Termination settlement formula",
+      "severity": "HIGH",
+      "fingerprints": [
+        "termination settlement",
+        "termination settlement formula"
+      ],
+      "trigger_phrases": [
+        "termination settlement formula",
+        "termination settlement"
+      ],
+      "plain_english": "The settlement formula determines whether convenience termination is commercially survivable.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "TERM-DEFAULT-031",
+      "title": "Default and cure period",
+      "severity": "MED",
+      "fingerprints": [
+        "default and cure",
+        "default and cure period"
+      ],
+      "trigger_phrases": [
+        "default and cure period",
+        "default and cure"
+      ],
+      "plain_english": "Fair cure rights matter because asymmetrical default structure is a major practical leverage point.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "TERM-STEPIN-032",
+      "title": "Contractor step-in rights",
+      "severity": "HIGH",
+      "fingerprints": [
+        "step in rights",
+        "contractor step-in rights"
+      ],
+      "trigger_phrases": [
+        "contractor step-in rights",
+        "step in rights"
+      ],
+      "plain_english": "The contractor can take over subs, records, and documents while preserving all downstream liability.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "LIAB-INDEM-033",
+      "title": "Broad indemnify / defend / hold harmless obligation",
+      "severity": "CRITICAL",
+      "fingerprints": [
+        "general indemnity",
+        "broad indemnify / defend / hold harmless obligation"
+      ],
+      "trigger_phrases": [
+        "broad indemnify / defend / hold harmless obligation",
+        "general indemnity"
+      ],
+      "plain_english": "Broad indemnity with a duty to defend can trigger immediate legal spend and major third-party exposure.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "LIAB-IPINDEM-034",
+      "title": "Intellectual property infringement indemnity",
+      "severity": "MED",
+      "fingerprints": [
+        "ip indemnity",
+        "intellectual property infringement indemnity"
+      ],
+      "trigger_phrases": [
+        "intellectual property infringement indemnity",
+        "ip indemnity"
+      ],
+      "plain_english": "IP indemnity should track the lower-tier party\u2019s own work and exclude modifications or out-of-scope reuse by others.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "LIAB-HAZMAT-035",
+      "title": "Hazardous materials indemnity",
+      "severity": "HIGH",
+      "fingerprints": [
+        "hazardous materials indemnity",
+        "hazardous materials indemnity"
+      ],
+      "trigger_phrases": [
+        "hazardous materials indemnity",
+        "hazardous materials indemnity"
+      ],
+      "plain_english": "Hazmat clauses can create very large environmental and third-party exposure if site-baseline risk is not reserved.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "LIAB-CAP-036",
+      "title": "Aggregate liability cap",
+      "severity": "LOW",
+      "fingerprints": [
+        "liability cap",
+        "aggregate liability cap"
+      ],
+      "trigger_phrases": [
+        "aggregate liability cap",
+        "liability cap"
+      ],
+      "plain_english": "A fee-based or insurance-linked cap makes design risk quantifiable and insurable.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "LIAB-CONSQ-037",
+      "title": "Mutual waiver of consequential damages",
+      "severity": "MED",
+      "fingerprints": [
+        "consequential damages waiver",
+        "mutual waiver of consequential damages"
+      ],
+      "trigger_phrases": [
+        "mutual waiver of consequential damages",
+        "consequential damages waiver"
+      ],
+      "plain_english": "This waiver matters only if the carve-outs do not swallow the entire protection.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "LIAB-INS-EFF-038",
+      "title": "Effect of insurance on liability allocation",
+      "severity": "MED",
+      "fingerprints": [
+        "effect of insurance",
+        "effect of insurance on liability allocation"
+      ],
+      "trigger_phrases": [
+        "effect of insurance on liability allocation",
+        "effect of insurance"
+      ],
+      "plain_english": "Insurance and contract risk allocation should be coordinated so there is no double recovery and no accidental uncapping of risk.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "IP-WFH-039",
+      "title": "Work-for-hire or full transfer of work product ownership",
+      "severity": "HIGH",
+      "fingerprints": [
+        "work for hire ownership",
+        "work-for-hire or full transfer of work product ownership"
+      ],
+      "trigger_phrases": [
+        "work-for-hire or full transfer of work product ownership",
+        "work for hire ownership"
+      ],
+      "plain_english": "Ownership transfer is one of the clearest commercial favorability signals in design-build documents.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "IP-LICENSE-040",
+      "title": "Designer retains ownership with limited project-use license",
+      "severity": "LOW",
+      "fingerprints": [
+        "limited project license",
+        "designer retains ownership with limited project-use license"
+      ],
+      "trigger_phrases": [
+        "designer retains ownership with limited project-use license",
+        "limited project license"
+      ],
+      "plain_english": "The designer keeps ownership while granting a project-use license, usually with reuse-at-user-risk protection.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "IP-EMBED-041",
+      "title": "Embedded or pre-existing intellectual property carve-out",
+      "severity": "MED",
+      "fingerprints": [
+        "embedded intellectual property",
+        "embedded or pre-existing intellectual property carve-out"
+      ],
+      "trigger_phrases": [
+        "embedded or pre-existing intellectual property carve-out",
+        "embedded intellectual property"
+      ],
+      "plain_english": "Background know-how and embedded tools should not transfer just because they appear in project documents.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "DISP-LADDER-042",
+      "title": "Field-to-senior-to-mediation dispute ladder",
+      "severity": "LOW",
+      "fingerprints": [
+        "tiered dispute ladder",
+        "field-to-senior-to-mediation dispute ladder"
+      ],
+      "trigger_phrases": [
+        "field-to-senior-to-mediation dispute ladder",
+        "tiered dispute ladder"
+      ],
+      "plain_english": "A field-to-senior-to-mediation ladder is the most practical benchmark for project disputes.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "DISP-MEDFIRST-043",
+      "title": "Mediation before litigation without stepped internal escalation",
+      "severity": "LOW",
+      "fingerprints": [
+        "mediation first",
+        "mediation before litigation without stepped internal escalation"
+      ],
+      "trigger_phrases": [
+        "mediation before litigation without stepped internal escalation",
+        "mediation first"
+      ],
+      "plain_english": "Mediation-first is simpler but does not provide the same project-administration structure as DBIA\u2019s ladder.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "DISP-REMOTE-044",
+      "title": "Remote mandatory arbitration venue",
+      "severity": "HIGH",
+      "fingerprints": [
+        "remote arbitration venue",
+        "remote mandatory arbitration venue"
+      ],
+      "trigger_phrases": [
+        "remote mandatory arbitration venue",
+        "remote arbitration venue"
+      ],
+      "plain_english": "A distant mandatory forum increases cost and settlement pressure on the downstream party.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "DISP-VENUE-045",
+      "title": "Venue tied to project state",
+      "severity": "LOW",
+      "fingerprints": [
+        "project state venue",
+        "venue tied to project state"
+      ],
+      "trigger_phrases": [
+        "venue tied to project state",
+        "project state venue"
+      ],
+      "plain_english": "Project-state venue is the most practical benchmark for construction disputes.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "DISP-CONT-046",
+      "title": "Duty to continue performance during dispute",
+      "severity": "LOW",
+      "fingerprints": [
+        "continue performance",
+        "duty to continue performance during dispute"
+      ],
+      "trigger_phrases": [
+        "duty to continue performance during dispute",
+        "continue performance"
+      ],
+      "plain_english": "The project keeps moving during the dispute and payment duties continue reciprocally.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "PUB-AUDIT-047",
+      "title": "Audit, review, and inspection rights",
+      "severity": "MED",
+      "fingerprints": [
+        "audit review rights",
+        "audit, review, and inspection rights"
+      ],
+      "trigger_phrases": [
+        "audit, review, and inspection rights",
+        "audit review rights"
+      ],
+      "plain_english": "Public-funds and some private forms require audit-ready records and inspection access.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "PUB-RECORDS-048",
+      "title": "Records retention period",
+      "severity": "MED",
+      "fingerprints": [
+        "records retention",
+        "records retention period"
+      ],
+      "trigger_phrases": [
+        "records retention period",
+        "records retention"
+      ],
+      "plain_english": "The downstream party must preserve project and cost records for years after final payment.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "PUB-FUNDING-049",
+      "title": "Payment subject to availability of funds",
+      "severity": "HIGH",
+      "fingerprints": [
+        "payment subject to funds",
+        "payment subject to availability of funds"
+      ],
+      "trigger_phrases": [
+        "payment subject to availability of funds",
+        "payment subject to funds"
+      ],
+      "plain_english": "Approved work may still wait on public-funding availability, which changes ordinary payment certainty.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    },
+    {
+      "id": "PUB-ALLOWABLE-050",
+      "title": "Allowable-cost compliance and invoice support package",
+      "severity": "HIGH",
+      "fingerprints": [
+        "allowable costs and invoice support",
+        "allowable-cost compliance and invoice support package"
+      ],
+      "trigger_phrases": [
+        "allowable-cost compliance and invoice support package",
+        "allowable costs and invoice support"
+      ],
+      "plain_english": "Federal cost rules, time-and-effort support, progress reports, DBE, Title VI, and ADA overlays make payment heavily documentation-driven.",
+      "why_it_matters": "This family is frequently outcome-determinative in construction and design-build negotiations and should be shown in the demo.",
+      "pushback_one_liner": "Please revise this section to align with a balanced design-build benchmark rather than an aggressive downstream transfer of risk."
+    }
+  ]
+}

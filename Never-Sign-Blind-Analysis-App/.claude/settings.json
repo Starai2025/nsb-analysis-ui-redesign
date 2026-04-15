@@ -1,0 +1,44 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run dev)",
+      "Bash(npm run build)",
+      "Bash(npm run lint)",
+      "Bash(npm install *)",
+      "Bash(npm run clean)",
+      "Bash(git status)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(git checkout *)",
+      "Bash(git branch *)",
+      "Read(*)",
+      "Write(src/**)",
+      "Write(server.ts)",
+      "Write(vite.config.ts)",
+      "Write(index.html)",
+      "Write(.env.example)",
+      "Write(docs/**)",
+      "Write(CLAUDE.md)",
+      "Write(.claude/**)"
+    ],
+    "deny": [
+      "Bash(rm -rf *)",
+      "Bash(curl *)",
+      "Bash(wget *)",
+      "Write(.env)",
+      "Write(.env.local)",
+      "Write(.env.production)"
+    ]
+  },
+  "model": "claude-sonnet-4-5",
+  "context": {
+    "includeFiles": [
+      "CLAUDE.md",
+      "src/types.ts",
+      "package.json"
+    ]
+  }
+}
