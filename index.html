@@ -393,6 +393,32 @@ html,body{height:100%;overflow:hidden;font-family:var(--fb);background:var(--g50
 .report-meta{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;}
 .surface-dark{background:linear-gradient(135deg,#12264d 0%,#0f2044 100%);color:#fff;border-radius:var(--r-lg);padding:24px 26px;box-shadow:var(--shadow-lg);}
 .surface-dark .ct{color:rgba(255,255,255,.56);border-bottom-color:rgba(255,255,255,.1);}
+.report-card{border-top:3px solid var(--orange);background:linear-gradient(180deg,#ffffff 0%,#fbfcff 100%);}
+.report-intro{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:20px;}
+.report-intro-copy{max-width:760px;}
+.report-kicker{font-size:10px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--orange);margin-bottom:8px;}
+.report-heading{font-family:var(--fd);font-size:34px;font-weight:900;letter-spacing:.03em;line-height:1.02;text-transform:uppercase;color:var(--navy);margin-bottom:8px;}
+.report-subhead{font-size:13px;line-height:1.65;color:var(--g400);}
+.report-meta-stack{text-align:right;flex-shrink:0;}
+.report-hero-grid{display:grid;grid-template-columns:1.4fr .9fr;gap:14px;margin:16px 0 22px;}
+.report-highlight{padding:18px 20px;border-radius:18px;background:linear-gradient(135deg,#0f2044 0%,#1d3a74 100%);color:#fff;box-shadow:var(--shadow-md);}
+.report-highlight-label{font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.56);margin-bottom:8px;}
+.report-highlight-copy{font-size:14px;line-height:1.75;color:rgba(255,255,255,.88);}
+.report-signal-stack{display:grid;gap:10px;}
+.report-signal-card{padding:14px 15px;border-radius:16px;background:#f5f8fd;border:1px solid #dde7f4;box-shadow:var(--shadow-sm);}
+.report-signal-card span{display:block;font-size:9px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#72819b;margin-bottom:5px;}
+.report-signal-card strong{display:block;font-size:14px;line-height:1.45;color:var(--navy);}
+.report-empty{padding:28px;border:1px dashed var(--g200);border-radius:18px;background:linear-gradient(180deg,#fbfcfe 0%,#ffffff 100%);font-size:14px;line-height:1.8;color:var(--g400);text-align:center;}
+.report-note{display:flex;justify-content:space-between;gap:16px;padding-top:16px;border-top:1px solid var(--g100);margin-top:10px;font-size:12px;color:var(--g400);}
+.report-note strong{color:var(--navy);}
+.sources-stage{display:grid;gap:14px;}
+.sources-stage-band{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 16px;border-radius:16px;background:linear-gradient(180deg,#ffffff 0%,#f7f9fc 100%);border:1px solid var(--g100);box-shadow:var(--shadow-sm);}
+.sources-stage-copy{display:grid;gap:4px;}
+.sources-stage-kicker{font-size:10px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--g400);}
+.sources-stage-title{font-size:14px;font-weight:700;color:var(--navy);}
+.sources-stage-meta{display:flex;gap:8px;flex-wrap:wrap;}
+.sources-mini-chip{display:inline-flex;align-items:center;gap:7px;padding:7px 10px;border-radius:999px;background:#fff;border:1px solid var(--g100);font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--g600);}
+.sources-mini-chip-dot{width:7px;height:7px;border-radius:50%;background:var(--orange);}
 .source-shell{display:grid;gap:18px;}
 .draft-shell{display:grid;gap:18px;}
 
@@ -467,16 +493,16 @@ html,body{height:100%;overflow:hidden;font-family:var(--fb);background:var(--g50
       <div class="ni-ico"><svg viewBox="0 0 12 12"><path d="M1 2h10M1 5h10M1 8h6"/></svg></div>New Analysis
     </div>
     <div class="ni" onclick="go('s2',this)">
-      <div class="ni-ico"><svg viewBox="0 0 12 12"><path d="M6 1l1.2 3.5H10.5l-2.8 2 1.1 3.5L6 8 3.2 10l1.1-3.5L1.5 4.5H4.8z"/></svg></div>Decision Summary<span class="ni-bdg">1</span>
+      <div class="ni-ico"><svg viewBox="0 0 12 12"><path d="M6 1l1.2 3.5H10.5l-2.8 2 1.1 3.5L6 8 3.2 10l1.1-3.5L1.5 4.5H4.8z"/></svg></div>Decision Summary<span id="summaryNavBadge" class="ni-bdg" style="display:none;">0</span>
     </div>
     <div class="ni" onclick="go('s3',this)">
-      <div class="ni-ico"><svg viewBox="0 0 12 12"><rect x="1" y="1" width="10" height="10" rx="1"/><path d="M3 4h6M3 6.5h6M3 9h4"/></svg></div>Report<span class="ni-bdg">12</span>
+      <div class="ni-ico"><svg viewBox="0 0 12 12"><rect x="1" y="1" width="10" height="10" rx="1"/><path d="M3 4h6M3 6.5h6M3 9h4"/></svg></div>Report<span id="reportNavBadge" class="ni-bdg" style="display:none;">0</span>
     </div>
     <div class="ni" onclick="go('s4',this)">
-      <div class="ni-ico"><svg viewBox="0 0 12 12"><path d="M2 9V3a1 1 0 011-1h4l3 3v4a1 1 0 01-1 1H3a1 1 0 01-1-1z"/><path d="M7 2v3h3"/></svg></div>Sources<span class="ni-bdg">4</span>
+      <div class="ni-ico"><svg viewBox="0 0 12 12"><path d="M2 9V3a1 1 0 011-1h4l3 3v4a1 1 0 01-1 1H3a1 1 0 01-1-1z"/><path d="M7 2v3h3"/></svg></div>Sources<span id="sourcesNavBadge" class="ni-bdg" style="display:none;">0</span>
     </div>
     <div class="ni" onclick="go('s5',this)">
-      <div class="ni-ico"><svg viewBox="0 0 12 12"><path d="M1 3h10v7a1 1 0 01-1 1H2a1 1 0 01-1-1V3z"/><path d="M1 3l5 4 5-4"/></svg></div>Draft Response
+      <div class="ni-ico"><svg viewBox="0 0 12 12"><path d="M1 3h10v7a1 1 0 01-1 1H2a1 1 0 01-1-1V3z"/><path d="M1 3l5 4 5-4"/></svg></div>Draft Response<span id="draftNavBadge" class="ni-bdg" style="display:none;">0</span>
     </div>
   </nav>
   <div class="sb-foot">
@@ -569,6 +595,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--fb);background:var(--g50
             <div class="dv" style="margin-top:0;"></div>
             <div class="action-row">
               <button id="analyzeBtn" class="btn btn-o btn-full btn-lg" style="flex:1 1 280px;">Analyze Change &nbsp;&middot;&nbsp; Powered by Claude AI</button>
+              <button id="resetWorkspaceBtn" class="btn btn-out btn-lg">Reset App Pages</button>
               <div id="analyzeStatus" class="cta-note">Review starts once both files are attached.</div>
             </div>
           </div>
@@ -692,57 +719,19 @@ html,body{height:100%;overflow:hidden;font-family:var(--fb);background:var(--g50
           <div class="summary-chip"><span class="summary-chip-dot"></span>Evidence count will update here</div>
         </div>
       </div>
-      <div id="reportCard" class="card section-card" style="border-top:3px solid var(--orange);">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;">
-          <div>
-            <div class="ey">Never Sign Blind™</div>
-            <div class="pg-title" style="margin-bottom:5px;">Change Order Analysis Report</div>
-            <div style="font-size:13px;color:var(--g400);">Generate a report to populate project, contract, and evidence details.</div>
+      <div id="reportCard" class="card section-card report-card">
+        <div class="report-intro">
+          <div class="report-intro-copy">
+            <div class="report-kicker">Formal Output</div>
+            <div class="report-heading">Change Order Analysis Report</div>
+            <div class="report-subhead">Generate a report to populate project, contract, evidence, and commercial position details.</div>
           </div>
-          <div style="text-align:right;flex-shrink:0;">
+          <div class="report-meta-stack">
             <span class="bdg b-gry">Pending</span>
             <div style="font-size:12px;color:var(--g400);margin-top:8px;">Analysis date will appear here</div>
           </div>
         </div>
-        <div class="dv" style="margin:0 0 2px;"></div>
-
-        <div class="rs"><div class="rs-head"><div class="rs-num">01</div><div class="rs-title">Executive Summary</div></div><div class="rs-body">Generate the formal report to populate the executive summary from the uploaded project documents and correspondence.</div></div>
-
-        <div class="rs"><div class="rs-head"><div class="rs-num">02</div><div class="rs-title">Owner / Client Request</div></div><div class="rs-body">The report workspace will summarize the requested change, affected contractual position, and negotiation posture after analysis completes.</div></div>
-
-        <div class="rs"><div class="rs-head"><div class="rs-num">03</div><div class="rs-title">Position Assessment</div></div>
-          <div class="rs-body">
-            <div class="sg" style="margin-bottom:12px;">
-              <div class="sc2"><div class="sc2-l">Scope Status</div><span class="bdg b-red">Out of Scope</span></div>
-              <div class="sc2"><div class="sc2-l">Fee Position</div><span class="bdg b-ora">Likely Yes</span></div>
-              <div class="sc2"><div class="sc2-l">Time Position</div><span class="bdg b-grn">Likely No</span></div>
-            </div>
-            Report generation will populate scope, fee, time, and responsibility positions here.
-          </div>
-        </div>
-
-        <div class="rs"><div class="rs-head"><div class="rs-num">04</div><div class="rs-title">Key Contract Clauses</div></div>
-          <div class="rs-body">
-            <div class="cc"><div class="cc-head"><span class="cc-ref">Clause support pending</span><span class="cc-pg">Page references pending</span></div><div class="cc-body"><div class="cc-q">Key contract clauses will appear here after report generation.</div><div class="cc-ml">Why It Matters</div><div class="cc-mt">This section will explain how the cited language supports the report’s recommendation and risk assessment.</div></div></div>
-          </div>
-        </div>
-
-        <div class="rs"><div class="rs-head"><div class="rs-num">06</div><div class="rs-title">Commercial Analysis</div></div>
-          <div class="rs-body">
-            <strong style="font-size:12px;text-transform:uppercase;letter-spacing:0.06em;color:var(--navy);display:block;margin-bottom:6px;">Fee</strong>
-            This section will summarize whether the generated analysis supports a fee adjustment and what additional pricing work is still needed.
-            <br><br>
-            <strong style="font-size:12px;text-transform:uppercase;letter-spacing:0.06em;color:var(--navy);display:block;margin-bottom:6px;">Time</strong>
-            This section will summarize any schedule impact and the basis for that position once the report is generated.
-          </div>
-        </div>
-
-        <div class="rs"><div class="rs-head"><div class="rs-num">10</div><div class="rs-title">Recommendation</div></div><div class="rs-body">The recommendation will populate here after the report is generated from the latest analysis.</div></div>
-
-        <div style="border-top:1px solid var(--g100);padding-top:14px;display:flex;justify-content:space-between;margin-top:8px;">
-          <div style="font-size:12px;color:var(--g400);">Never Sign Blind™ &mdash; Confidential &nbsp;&middot;&nbsp; Proprietary AI Analysis</div>
-          <div style="font-size:12px;color:var(--g400);">Analysis timestamp pending</div>
-        </div>
+        <div class="report-empty">Run analysis and generate the report to populate this export-ready memo with the executive summary, clause support, commercial posture, and recommendation.</div>
       </div>
       </div>
     </div>
@@ -776,6 +765,16 @@ html,body{height:100%;overflow:hidden;font-family:var(--fb);background:var(--g50
         </div>
         <div class="sources-workspace">
           <section class="sources-stage">
+            <div class="sources-stage-band">
+              <div class="sources-stage-copy">
+                <div class="sources-stage-kicker">Document Viewer</div>
+                <div class="sources-stage-title">Live contract preview with linked evidence jumps</div>
+              </div>
+              <div class="sources-stage-meta">
+                <div class="sources-mini-chip"><span class="sources-mini-chip-dot"></span>PDF preview</div>
+                <div class="sources-mini-chip">Jump to cited page</div>
+              </div>
+            </div>
             <div class="sources-viewer">
               <div class="sources-viewer-head">
                 <div class="sources-viewer-title">

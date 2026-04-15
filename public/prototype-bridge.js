@@ -22,6 +22,7 @@ const state = {
 let reportRequest = null;
 let threadRequest = null;
 let pdfjsPromise = null;
+let jsPdfPromise = null;
 const sourceViewer = {
   pdfDoc: null,
   currentPage: 1,
@@ -38,6 +39,10 @@ const el = {
   topbarProjectChip: document.getElementById("topbarProjectChip"),
   topbarChangeChip: document.getElementById("topbarChangeChip"),
   topbarCitationChip: document.getElementById("topbarCitationChip"),
+  summaryNavBadge: document.getElementById("summaryNavBadge"),
+  reportNavBadge: document.getElementById("reportNavBadge"),
+  sourcesNavBadge: document.getElementById("sourcesNavBadge"),
+  draftNavBadge: document.getElementById("draftNavBadge"),
   intakeCaseTitle: document.getElementById("intakeCaseTitle"),
   contractInput: document.getElementById("contractInput"),
   correspondenceInput: document.getElementById("correspondenceInput"),
@@ -59,6 +64,7 @@ const el = {
   correspondenceFileGlyph: document.getElementById("correspondenceFileGlyph"),
   correspondenceFileName: document.getElementById("correspondenceFileName"),
   analyzeBtn: document.getElementById("analyzeBtn"),
+  resetWorkspaceBtn: document.getElementById("resetWorkspaceBtn"),
   analyzeStatus: document.getElementById("analyzeStatus"),
   intakeNoticeText: document.getElementById("intakeNoticeText"),
   progressCount: document.getElementById("progressCount"),
@@ -162,6 +168,13 @@ function nl2br(value) {
 function cloneArrayBuffer(buffer) {
   if (!(buffer instanceof ArrayBuffer)) return null;
   return buffer.slice(0);
+}
+
+function setBadge(node, value) {
+  if (!node) return;
+  const count = Number(value) || 0;
+  node.textContent = String(count);
+  node.style.display = count > 0 ? "inline-block" : "none";
 }
 
 const THREAD_DB_NAME = "nsb-db";
@@ -314,6 +327,31 @@ async function hydrateFromThread() {
   return true;
 }
 
+function getClauseEntries() {
+  return Array.isArray(state.report?.sections?.keyContractClauses) ? state.report.sections.keyContractClauses : [];
+}
+
+function getEvidenceItems() {
+  const citationItems = Array.isArray(state.citations) ? state.citations : [];
+  return [...citationItems, ...getClauseEntries()];
+}
+
+function getSummaryCount() {
+  return Array.isArray(state.analysis?.risksIdentified) ? state.analysis.risksIdentified.length : 0;
+}
+
+function getReportFindingCount() {
+  const clauseCount = getClauseEntries().length;
+  return clauseCount || (Array.isArray(state.citations) ? state.citations.length : 0);
+}
+
+function getDraftCount() {
+  let count = 0;
+  if (state.draft?.letter) count += 1;
+  if (state.draft?.strategy) count += 1;
+  return count;
+}
+
 function renderWorkspaceChrome() {
   const pd = state.projectData;
   const projectName = pd.name || "No active analysis";
@@ -328,6 +366,10 @@ function renderWorkspaceChrome() {
   el.topbarChangeChip.textContent = escapeHtml(changeLabel);
   el.topbarCitationChip.textContent = citationCount ? `${citationCount} citation${citationCount === 1 ? "" : "s"} cited` : "No citations yet";
   el.intakeCaseTitle.textContent = pd.name ? `${pd.name} · Proposed Variation Review` : "Start a new contract analysis";
+  setBadge(el.summaryNavBadge, getSummaryCount());
+  setBadge(el.reportNavBadge, getReportFindingCount());
+  setBadge(el.sourcesNavBadge, getEvidenceItems().length);
+  setBadge(el.draftNavBadge, getDraftCount());
 }
 
 function setProjectFields() {
@@ -507,16 +549,55 @@ function renderReport() {
   const pd = state.projectData;
   renderReportHeader(report);
   if (state.reportLoading) {
-    el.reportCard.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;"><div><div class="ey">Never Sign Blind™</div><div class="pg-title" style="margin-bottom:5px;">Generating report...</div><div style="font-size:13px;color:var(--g400);">The backend is building the formal report from the latest analysis.</div></div><div style="text-align:right;flex-shrink:0;"><span class="bdg b-ora">Working</span><div style="font-size:12px;color:var(--g400);margin-top:8px;">Please wait</div></div></div><div class="dv" style="margin:0 0 2px;"></div>${reportSectionHtml(1, "Executive Summary", "Generating the full report now from the analyzed contract and correspondence.")}`;
+    el.reportCard.innerHTML = `
+      <div class="report-intro">
+        <div class="report-intro-copy">
+          <div class="report-kicker">Formal Output</div>
+          <div class="report-heading">Generating report...</div>
+          <div class="report-subhead">The backend is building the formal report from the latest analysis, citations, and commercial position.</div>
+        </div>
+        <div class="report-meta-stack">
+          <span class="bdg b-ora">Working</span>
+          <div style="font-size:12px;color:var(--g400);margin-top:8px;">Please wait</div>
+        </div>
+      </div>
+      <div class="report-hero-grid">
+        <div class="report-highlight">
+          <div class="report-highlight-label">Executive read</div>
+          <div class="report-highlight-copy">Compiling the executive summary, owner request, key clauses, commercial analysis, and recommendation into the report workspace.</div>
+        </div>
+        <div class="report-signal-stack">
+          <div class="report-signal-card"><span>Status</span><strong>Generating formal memo</strong></div>
+          <div class="report-signal-card"><span>Source state</span><strong>Using latest analysis payload</strong></div>
+        </div>
+      </div>
+      ${reportSectionHtml(1, "Executive Summary", "Generating the full report now from the analyzed contract and correspondence.")}`;
     return;
   }
   if (!report) {
-    el.reportCard.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;"><div><div class="ey">Never Sign Blind™</div><div class="pg-title" style="margin-bottom:5px;">Change Order Analysis Report</div><div style="font-size:13px;color:var(--g400);">Run analysis and generate a report to populate this workspace.</div></div><div style="text-align:right;flex-shrink:0;"><span class="bdg b-gry">Pending</span><div style="font-size:12px;color:var(--g400);margin-top:8px;">Awaiting report generation</div></div></div><div class="dv" style="margin:0 0 2px;"></div>${reportSectionHtml(1, "Executive Summary", "The formal report will be generated from the saved analysis and displayed here.")}`;
+    el.reportCard.innerHTML = `
+      <div class="report-intro">
+        <div class="report-intro-copy">
+          <div class="report-kicker">Formal Output</div>
+          <div class="report-heading">Change Order Analysis Report</div>
+          <div class="report-subhead">Run analysis and generate a report to populate this workspace with the executive summary, clause support, commercial posture, and recommended path.</div>
+        </div>
+        <div class="report-meta-stack">
+          <span class="bdg b-gry">Pending</span>
+          <div style="font-size:12px;color:var(--g400);margin-top:8px;">Awaiting report generation</div>
+        </div>
+      </div>
+      <div class="report-empty">This report view is reserved for the final memo generated from the active matter. Once analysis has run, this page will render the full report in an export-ready format.</div>
+      ${reportSectionHtml(1, "Executive Summary", "The formal report will be generated from the saved analysis and displayed here.")}`;
     return;
   }
 
   const metadata = report.metadata || {};
   const sections = report.sections || {};
+  const scopeStatus = sections.arcadisPosition?.scopeStatus || "Unclear";
+  const feePosition = sections.arcadisPosition?.feePosition || "Unclear";
+  const timePosition = sections.arcadisPosition?.timePosition || "Unclear";
+  const noticeDeadline = sections.noticeRequirements?.deadline || "Not specified";
   const keyClauses = Array.isArray(sections.keyContractClauses)
     ? sections.keyContractClauses
         .map(
@@ -526,18 +607,28 @@ function renderReport() {
     : "";
 
   el.reportCard.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;">
-      <div>
-        <div class="ey">Never Sign Blind™</div>
-        <div class="pg-title" style="margin-bottom:5px;">${escapeHtml(report.title || "Change Order Analysis Report")}</div>
-        <div style="font-size:13px;color:var(--g400);">${escapeHtml(metadata.projectName || pd.name || "Project")} &nbsp;&middot;&nbsp; ${escapeHtml(metadata.contractNumber || pd.contractNumber || "Contract")} &nbsp;&middot;&nbsp; ${escapeHtml(metadata.changeRequestId || pd.changeRequestId || "Change request")} &nbsp;&middot;&nbsp; Owner: ${escapeHtml(metadata.ownerClient || "Not specified")}</div>
+    <div class="report-intro">
+      <div class="report-intro-copy">
+        <div class="report-kicker">Formal Output</div>
+        <div class="report-heading">${escapeHtml(report.title || "Change Order Analysis Report")}</div>
+        <div class="report-subhead">${escapeHtml(metadata.projectName || pd.name || "Project")} &nbsp;&middot;&nbsp; ${escapeHtml(metadata.contractNumber || pd.contractNumber || "Contract")} &nbsp;&middot;&nbsp; ${escapeHtml(metadata.changeRequestId || pd.changeRequestId || "Change request")} &nbsp;&middot;&nbsp; Owner: ${escapeHtml(metadata.ownerClient || "Not specified")}</div>
       </div>
-      <div style="text-align:right;flex-shrink:0;">
+      <div class="report-meta-stack">
         <span class="bdg b-gry">${escapeHtml(metadata.reportStatus || "Draft")}</span>
         <div style="font-size:12px;color:var(--g400);margin-top:8px;">Analyzed: ${escapeHtml(formatDate(metadata.dateOfAnalysis || state.lastAnalyzedAt))}</div>
       </div>
     </div>
-    <div class="dv" style="margin:0 0 2px;"></div>
+    <div class="report-hero-grid">
+      <div class="report-highlight">
+        <div class="report-highlight-label">Executive read</div>
+        <div class="report-highlight-copy">${escapeHtml(sections.executiveSummary?.content || "Executive summary unavailable.")}</div>
+      </div>
+      <div class="report-signal-stack">
+        <div class="report-signal-card"><span>Scope position</span><strong>${escapeHtml(scopeStatus)}</strong></div>
+        <div class="report-signal-card"><span>Commercial posture</span><strong>${escapeHtml(`Fee: ${feePosition} · Time: ${timePosition}`)}</strong></div>
+        <div class="report-signal-card"><span>Notice deadline</span><strong>${escapeHtml(noticeDeadline)}</strong></div>
+      </div>
+    </div>
     ${reportSectionHtml(1, "Executive Summary", nl2br(sections.executiveSummary?.content || ""))}
     ${reportSectionHtml(2, "Owner / Client Request", nl2br(sections.ownerRequest?.content || ""))}
     ${reportSectionHtml(3, "Position Assessment", `<div class="sg" style="margin-bottom:12px;"><div class="sc2"><div class="sc2-l">Scope Status</div><span class="bdg b-red">${escapeHtml(sections.arcadisPosition?.scopeStatus || "Unclear")}</span></div><div class="sc2"><div class="sc2-l">Responsibility</div><span class="bdg b-ora">${escapeHtml(sections.arcadisPosition?.responsibility || "Unclear")}</span></div><div class="sc2"><div class="sc2-l">Fee Position</div><span class="bdg b-grn">${escapeHtml(sections.arcadisPosition?.feePosition || "Unclear")}</span></div></div>${nl2br(sections.arcadisPosition?.explanation || "")}`)}
@@ -550,9 +641,9 @@ function renderReport() {
     ${reportSectionHtml(10, "Recommendation", nl2br(sections.recommendation?.content || ""))}
     ${reportSectionHtml(11, "Draft Response", nl2br(sections.draftResponse?.content || ""))}
     ${reportSectionHtml(12, "Source Snapshot", nl2br(sections.sourceSnapshot?.content || ""))}
-    <div style="border-top:1px solid var(--g100);padding-top:14px;display:flex;justify-content:space-between;margin-top:8px;">
-      <div style="font-size:12px;color:var(--g400);">Never Sign Blind™ &mdash; Confidential &nbsp;&middot;&nbsp; Backend-generated analysis</div>
-    <div style="font-size:12px;color:var(--g400);">Updated ${escapeHtml(formatDate(report.updatedAt || state.lastAnalyzedAt))}</div>
+    <div class="report-note">
+      <div><strong>Never Sign Blind™</strong> &nbsp;&middot;&nbsp; Confidential &nbsp;&middot;&nbsp; Backend-generated analysis</div>
+      <div>Updated ${escapeHtml(formatDate(report.updatedAt || state.lastAnalyzedAt))}</div>
     </div>`;
 }
 
@@ -999,6 +1090,12 @@ function resetAppState(clearProjectData = true) {
   renderAll();
 }
 
+function resetWorkspaceFromButton() {
+  resetAppState(true);
+  updateNavForScreen("s1");
+  go("s1", document.querySelectorAll(".ni")[0]);
+}
+
 function setLoading(loading, button, loadingText) {
   state.loading = loading;
   if (button) {
@@ -1149,6 +1246,36 @@ function downloadText(filename, text) {
   URL.revokeObjectURL(url);
 }
 
+function loadJsPdf() {
+  if (window.jspdf?.jsPDF) return Promise.resolve(window.jspdf.jsPDF);
+  if (jsPdfPromise) return jsPdfPromise;
+  jsPdfPromise = new Promise((resolve, reject) => {
+    const existing = document.querySelector('script[data-jspdf-loader="true"]');
+    if (existing) {
+      existing.addEventListener("load", () => {
+        if (window.jspdf?.jsPDF) resolve(window.jspdf.jsPDF);
+        else reject(new Error("jsPDF failed to initialize."));
+      }, { once: true });
+      existing.addEventListener("error", () => reject(new Error("jsPDF failed to load.")), { once: true });
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "/jspdf/jspdf.umd.min.js";
+    script.async = true;
+    script.dataset.jspdfLoader = "true";
+    script.onload = () => {
+      if (window.jspdf?.jsPDF) resolve(window.jspdf.jsPDF);
+      else reject(new Error("jsPDF failed to initialize."));
+    };
+    script.onerror = () => reject(new Error("jsPDF failed to load."));
+    document.head.appendChild(script);
+  }).catch((error) => {
+    jsPdfPromise = null;
+    throw error;
+  });
+  return jsPdfPromise;
+}
+
 async function exportReportPdf() {
   if (!state.analysis) {
     go("s1", document.querySelectorAll(".ni")[0]);
@@ -1170,9 +1297,7 @@ async function exportReportPdf() {
       if (!report) throw new Error("The report could not be generated for export.");
     }
     button.textContent = "Building PDF...";
-    await import("/node_modules/jspdf/dist/jspdf.umd.min.js");
-    const jsPDF = window.jspdf?.jsPDF;
-    if (!jsPDF) throw new Error("jsPDF failed to load.");
+    const jsPDF = await loadJsPdf();
     const report = state.report || {};
     const metadata = report.metadata || {};
     const sections = report.sections || {};
@@ -1322,6 +1447,117 @@ async function exportReportPdf() {
   }
 }
 
+async function exportDraftPdf() {
+  if (!state.draft?.letter && !el.draftTextarea.value.trim()) {
+    go("s1", document.querySelectorAll(".ni")[0]);
+    setStatus("Generate a draft first so there is content to export.", "error");
+    return;
+  }
+
+  const button = el.exportDraftBtn;
+  button.dataset.baseText = button.dataset.baseText || button.textContent;
+  button.disabled = true;
+  button.textContent = "Building PDF...";
+
+  try {
+    const jsPDF = await loadJsPdf();
+    const pdf = new jsPDF("p", "pt", "letter");
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const margin = 40;
+    const usableWidth = pageWidth - margin * 2;
+    const lineHeight = 16;
+    let y = margin;
+    const draftText = (el.draftTextarea.value || state.draft?.letter || "").trim();
+    const strategy = state.draft?.strategy || null;
+
+    const ensureSpace = (needed = lineHeight) => {
+      if (y + needed <= pageHeight - margin) return;
+      pdf.addPage();
+      y = margin;
+    };
+    const writeLine = (text, options = {}) => {
+      const { size = 11, weight = "normal", color = [31, 41, 55] } = options;
+      ensureSpace(lineHeight);
+      pdf.setFont("helvetica", weight);
+      pdf.setFontSize(size);
+      pdf.setTextColor(color[0], color[1], color[2]);
+      pdf.text(String(text || ""), margin, y);
+      y += lineHeight;
+    };
+    const writeParagraph = (text, options = {}) => {
+      const { size = 11, weight = "normal", color = [55, 65, 81], spacing = 6 } = options;
+      const pieces = String(text || "").replace(/\r/g, "").split("\n").filter((part) => part.trim());
+      if (!pieces.length) {
+        y += spacing;
+        return;
+      }
+      pdf.setFont("helvetica", weight);
+      pdf.setFontSize(size);
+      pdf.setTextColor(color[0], color[1], color[2]);
+      for (const piece of pieces) {
+        const lines = pdf.splitTextToSize(piece.trim(), usableWidth);
+        ensureSpace(lines.length * lineHeight + spacing);
+        pdf.text(lines, margin, y);
+        y += lines.length * lineHeight;
+        y += spacing;
+      }
+    };
+    const writeSection = (title, body) => {
+      ensureSpace(lineHeight * 2);
+      writeLine(title, { size: 13, weight: "bold", color: [17, 24, 39] });
+      writeParagraph(body);
+      y += 4;
+    };
+
+    writeLine("Never Sign Blind", { size: 10, weight: "bold", color: [202, 118, 60] });
+    writeLine("Draft Response", { size: 18, weight: "bold", color: [17, 24, 39] });
+    writeParagraph(
+      [
+        state.projectData.name || "Project pending",
+        state.projectData.contractNumber || "Contract pending",
+        state.projectData.changeRequestId || "Change request pending",
+      ].join(" | "),
+      { size: 10, color: [75, 85, 99], spacing: 12 },
+    );
+    writeSection("Draft Letter", draftText || "No draft response has been generated.");
+
+    if (strategy) {
+      writeSection("What Changed", strategy.whatChanged || "Not specified.");
+      writeSection("Current Position", strategy.arcadisPosition || "Not specified.");
+      writeSection("Critical Path Impact", strategy.criticalPathImpact || "Not specified.");
+      writeSection("Schedule Delay Risk", strategy.scheduleDelayRisk || "Not specified.");
+      writeSection("Mitigation Strategy", Array.isArray(strategy.mitigationSteps) && strategy.mitigationSteps.length ? strategy.mitigationSteps.map((step, index) => `${index + 1}. ${step}`).join("\n") : "No mitigation steps were returned.");
+      writeSection("Alternative Paths", Array.isArray(strategy.alternativePaths) && strategy.alternativePaths.length ? strategy.alternativePaths.map((path, index) => `${index + 1}. ${path}`).join("\n") : "No alternative paths were returned.");
+      writeSection("Recommended Path", strategy.recommendedPath || "No recommended path was returned.");
+    }
+
+    ensureSpace(lineHeight * 2);
+    pdf.setDrawColor(229, 231, 235);
+    pdf.line(margin, y, pageWidth - margin, y);
+    y += 14;
+    writeLine("Never Sign Blind - Confidential | Backend-generated draft", { size: 9, color: [107, 114, 128] });
+    writeLine(`Updated ${formatDate(state.draft?.updatedAt || state.lastAnalyzedAt)}`, { size: 9, color: [107, 114, 128] });
+
+    const safeProject = (state.projectData.name || "draft-response").replace(/[^\w\-]+/g, "-");
+    const filename = `${safeProject}-draft-response.pdf`;
+    const blob = pdf.output("blob");
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } catch (error) {
+    alert(`Draft export failed: ${error.message || error}`);
+  } finally {
+    button.disabled = false;
+    button.textContent = button.dataset.baseText;
+  }
+}
+
 async function bindFile(kind, file) {
   if (!file) return;
   const meta = { name: file.name, metadata: { mimeType: file.type, fileSize: file.size, uploadedAt: new Date().toISOString() } };
@@ -1379,11 +1615,12 @@ function initEvents() {
   el.contractInput.addEventListener("change", async (event) => bindFile("contract", event.target.files?.[0]));
   el.correspondenceInput.addEventListener("change", async (event) => bindFile("correspondence", event.target.files?.[0]));
   el.analyzeBtn.addEventListener("click", analyzeDocuments);
+  el.resetWorkspaceBtn?.addEventListener("click", resetWorkspaceFromButton);
   el.generateReportBtn.addEventListener("click", generateReport);
   el.regenerateReportBtn.addEventListener("click", generateReport);
   el.regenerateDraftBtn.addEventListener("click", generateDraft);
   el.exportReportBtn.addEventListener("click", exportReportPdf);
-  el.exportDraftBtn.addEventListener("click", () => downloadText("nsb-draft-response.txt", el.draftTextarea.value || "No draft generated."));
+  el.exportDraftBtn.addEventListener("click", exportDraftPdf);
   el.draftTabBtn?.addEventListener("click", () => {
     setDraftTab("draft");
     saveState();
@@ -1444,8 +1681,8 @@ function initEvents() {
 }
 
 (async function init() {
-  loadLocalState();
-  await hydrateFromThread();
+  clearPersistedState();
+  await clearCurrentThread();
   initNavigation();
   initEvents();
   setProjectFields();

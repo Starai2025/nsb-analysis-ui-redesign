@@ -1,0 +1,93 @@
+{
+  "version": "1",
+  "updated": "2026-04-06",
+  "description": "Common construction subcontract clause patterns. Claude reads this before analyzing. Match fingerprint keywords to the contract text.",
+  "patterns": [
+    {
+      "fingerprint": "pay when paid",
+      "category": "pay-when-paid",
+      "severity": "HIGH",
+      "plain_english": "You only get paid when the GC gets paid by the owner — no fixed deadline.",
+      "what_it_means": "If the owner is slow, disputes a draw, or goes bankrupt, your payment is frozen indefinitely. No clock is ticking in your favor.",
+      "pushback_template": "Request a pay-when-paid backstop: GC must pay within 45 days regardless of owner payment status.",
+      "statutes": {
+        "GA": "O.C.G.A. § 13-11-4 (Prompt Pay Act — 10 days after GC receipt)",
+        "CA": "Civil Code § 8814 (7 days after GC receipt)",
+        "NJ": "N.J.S.A. 2A:30A-2",
+        "TX": "Tex. Property Code § 28.004"
+      }
+    },
+    {
+      "fingerprint": "pay if paid condition precedent",
+      "category": "pay-if-paid",
+      "severity": "HIGH",
+      "plain_english": "If the owner never pays the GC, you never get paid — your payment is a true condition, not just timing.",
+      "what_it_means": "Owner insolvency or dispute = you absorb the loss. This is the most dangerous payment clause in construction.",
+      "pushback_template": "Pay-if-paid clauses require explicit 'condition precedent' language to be enforceable. Challenge the language and request a backstop.",
+      "statutes": {
+        "GA": "Georgia courts require explicit condition precedent language — ambiguous clauses construed as pay-when-paid",
+        "CA": "Cal. Civil Code § 8122 — pay-if-paid unenforceable for licensed contractors on private works"
+      }
+    },
+    {
+      "fingerprint": "retainage project closeout final completion owner acceptance",
+      "category": "retainage",
+      "severity": "HIGH",
+      "plain_english": "Your 10% retainage is held until the entire project closes — not when your scope is done.",
+      "what_it_means": "You could finish your scope in month 3 of a 14-month project and wait over a year to collect money you already earned.",
+      "pushback_template": "Push for retainage release within 60 days of your substantial completion, not project closeout.",
+      "statutes": {
+        "GA": "O.C.G.A. § 13-10-80 — must release within 60 days of sub's substantial completion",
+        "CA": "Cal. Civil Code § 8812 — public works retainage rules",
+        "NJ": "N.J.S.A. 2A:30A-2"
+      }
+    },
+    {
+      "fingerprint": "48 hours notice extra work change order",
+      "category": "notice",
+      "severity": "HIGH",
+      "plain_english": "You must give written notice of any extra work within 48 hours or you waive recovery rights.",
+      "what_it_means": "In real field conditions, a changed condition on a Friday afternoon means you lose recovery rights by Sunday if you miss the window.",
+      "pushback_template": "Request 7 calendar days (or 5 business days minimum) for written extra work notice. Remove 'time is of the essence' from this clause.",
+      "statutes": {}
+    },
+    {
+      "fingerprint": "backcharge deduct without notice",
+      "category": "backcharge",
+      "severity": "MED",
+      "plain_english": "GC can deduct backcharges from your payments at any time without prior written notice.",
+      "what_it_means": "You could receive a payment 30% lower than expected with no advance warning and no ability to dispute before the deduction happens.",
+      "pushback_template": "Request 5-day advance written notice with documentation before any backcharge deduction. Without notice, backcharge is waived.",
+      "statutes": {}
+    },
+    {
+      "fingerprint": "liquidated damages delay",
+      "category": "liquidated-damages",
+      "severity": "MED",
+      "plain_english": "You are exposed to per-day liquidated damages for project delays that may include delays caused by others.",
+      "what_it_means": "LD clauses without a scope cap can expose you to charges for delays caused by the owner, GC, or other trades — not just your work.",
+      "pushback_template": "Request LD exposure capped at your contract value and limited to delays directly caused by your scope. Ask to see the prime contract LD clause before signing.",
+      "statutes": {}
+    },
+    {
+      "fingerprint": "indemnify defend hold harmless any and all claims",
+      "category": "indemnity",
+      "severity": "HIGH",
+      "plain_english": "You must defend and pay for any claims arising from the project, including claims caused by the GC or owner.",
+      "what_it_means": "Broad indemnity with no carve-out for GC negligence transfers the GC's legal costs and liability onto you. 'Defend' means you pay legal fees upfront, not just damages.",
+      "pushback_template": "Request mutual indemnity limited to each party's own acts. Remove GC negligence from subcontractor's indemnity obligation.",
+      "statutes": {
+        "GA": "Georgia HB 137 (2022) / O.C.G.A. § 13-8-2 — requiring sub to indemnify GC for GC's own negligence is VOID"
+      }
+    },
+    {
+      "fingerprint": "termination convenience without profit",
+      "category": "termination",
+      "severity": "HIGH",
+      "plain_english": "GC can terminate the contract at any time for any reason, and you only receive payment for work already completed — no lost profit.",
+      "what_it_means": "If you mobilized, ordered materials, and scheduled crews, a termination-for-convenience clause means you absorb all sunk costs with no recovery for anticipated profit.",
+      "pushback_template": "Request payment for completed work PLUS reasonable overhead and profit on the terminated portion. Minimum: demobilization costs and material restocking fees.",
+      "statutes": {}
+    }
+  ]
+}
