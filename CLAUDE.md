@@ -1,138 +1,167 @@
-# Never Sign Blind — Rebuild Rules
+# NSB LA DOTD Demo Branch Memory
 
-## Product Goal
-This app must become a fully live, local-first contract change-management tool.
+This repository is actively being adapted into a Louisiana / LA DOTD / Calcasieu demo while preserving the current local-first NSB application flow.
 
-- No fake report generation
-- No fake chat
-- No fake source review
-- No client-side LLM calls
+## Active branch rules
 
-## Current Stack
-- Vite + React frontend
-- Express backend
+- Do not work directly on `main` for this demo effort.
+- Preferred demo branch: `demo/ladot-calcasieu`.
+- Treat `main` as protected production history.
+- Every major phase ends with a checkpoint commit before moving on.
 
-## Architecture Direction
+## Demo mission
 
-**Keep the current stack.**
+Turn the current NSB app into a Louisiana / LA DOTD / Calcasieu demo branch that stays local-first and preserves the current end-to-end route flow:
+
+1. `intake`
+2. `summary`
+3. `report`
+4. `draft`
+5. `sources`
+
+The current app already persists the active analysis thread in the browser. The LA DOTD demo must extend that model, not replace it.
+
+## Non-negotiables
+
+- Do not replace browser persistence with a cloud database.
+- Do not remove the current route shell.
+- Do not break the current summary, report, draft, or sources flow.
+- Do not expose unfinished Georgia/Louisiana switching in the visible demo UI.
+- Do not position the product as a legal advice engine.
+- Do not move API keys or model calls into the browser.
+- Do not silently discard meaningful uploaded data.
+
+## Product framing for this branch
+
+- Demo project: `I-10 Calcasieu River Bridge`
+- Agency: `LA DOTD`
+- Delivery model: `P3 / design-build`
+- User lens: `Arcadis / design team / internal reviewer`
+- Core pain: rejected design submittals, correspondence, redesign pressure, and notice risk
+
+The demo should feel tailored to this scenario without introducing a visible multi-state selector.
+
+## Source of truth and persistence rules
+
+The browser is the primary store for user work.
 
 | Layer | Responsibility |
 |---|---|
-| IndexedDB | Primary local persistence — all analysis data, documents, threads |
-| localStorage | Tiny UI/session preferences only (e.g., sidebar collapsed state) |
-| Express backend | All model calls, orchestration, file processing |
-| React frontend | UI state only — never calls AI APIs directly |
+| IndexedDB | Primary source of truth for project, documents, analyses, draft, report, citations, artifacts |
+| localStorage | Tiny UI preferences and flags only |
+| Express backend | Compute layer only: ingestion, extraction, analysis, report generation, draft generation, chat |
+| Server backup files | Temporary convenience/backup only, never the authoritative app database |
 
-### Non-Negotiables
-- Never expose API keys to the browser
-- Never store only one global analysis — every analysis is a named thread
-- No mocked content on any production-facing page
-- No phase is complete until lint + build + smoke checks pass
-- Do not redesign the UI unless a change is required for correctness
+### Persistence constraints
 
-## AI Model
-**All AI calls use the Anthropic Claude API via `@anthropic-ai/sdk`.**
+- No Supabase for this branch.
+- No durable remote database for this branch.
+- Save all generated artifacts locally after responses return.
+- Preserve compatibility with the existing `threads` store and `CURRENT_THREAD_ID = "current"` flow until a planned schema migration is implemented.
+- Preserve the current `contractBlob` behavior so the full uploaded PDF can still be viewed on the Sources page.
 
-- Model: `claude-sonnet-4-5`
-- API key: `process.env.ANTHROPIC_API_KEY` — server-side only, never sent to the browser
-- Structured output: tool use (`tool_choice: { type: "tool", name: "..." }`)
-- Do NOT use any Gemini, OpenAI, or other AI SDKs
+## Current route-flow contract
 
-## Build Order
+The following route shell is already live and must remain intact unless a change is required for correctness:
 
-```
-1. Audit & stabilization       ✅ complete
-2. Persistence layer (IndexedDB) ✅ complete
-3. Real document ingestion     ✅ complete
-4. Real analysis (server-side)
-5. Real report
-6. Real sources
-7. Real Ask the Contract
-8. Real draft response
-9. Claim threading / position comparison
-```
+- `/intake`
+- `/summary`
+- `/report`
+- `/sources`
+- `/draft`
 
-## Validation Rule
+Shell elements that should remain conceptually stable:
 
-Before moving to the next phase, all of the following must pass:
+- left sidebar
+- top application bar
+- central routed content area
+- assistant/chat surface
+
+Any Louisiana-specific changes should fit inside the existing shell rather than replace it.
+
+## Backend rules
+
+- All AI calls stay server-side via `@anthropic-ai/sdk`.
+- Model selection comes from `ANTHROPIC_MODEL` with a safe server-side default.
+- The server is responsible for:
+  - file ingestion
+  - extraction
+  - analysis
+  - citation extraction
+  - report generation
+  - draft generation
+  - document Q&A orchestration
+- The frontend never calls the model provider directly.
+
+## Data-model guidance for this branch
+
+`ProjectData` will need additive expansion for the LA DOTD demo. New demo-specific fields should be introduced in a compatibility-safe way so existing pages still work while richer project context becomes available.
+
+Expected additions include:
+
+- `state`
+- `agency`
+- `deliveryModel`
+- `ownerClient`
+- `userRole`
+- `concessionaire`
+- `builder`
+- `leadDesigner`
+- `demoProfile`
+- `issueMode`
+
+Preserve existing fields:
+
+- `name`
+- `contractNumber`
+- `changeRequestId`
+
+## Output compatibility rules
+
+Do not break downstream consumers of:
+
+- `AnalysisResult`
+- `ProjectData`
+- `ExtractedDocument`
+- `Citation`
+- `Report`
+- `Draft`
+
+Any schema evolution should be additive, explicitly typed, and safe for existing summary/report/draft/sources pages.
+
+## QA and validation rules
+
+No phase is complete until the relevant checks pass.
+
+Minimum validation:
 
 ```bash
-npm run lint       # maps to: tsc --noEmit
-npm run build      # must complete with no errors
+npm run lint
+npm run build
 ```
 
-Then run the manual smoke checklist in `.claude/skills/phase-gate/smoke-tests.md`.
+When behavior changes materially, also run the appropriate smoke or browser checks before presenting the result.
 
-Then run `/review` focused on regressions.
+Required reporting after meaningful implementation phases:
 
-Then summarize:
-- Changed files
-- What was removed or made no longer necessary
-- Remaining known risks entering the next phase
+- changed files
+- what stayed intentionally compatible
+- known risks or follow-up items
 
-## Current Known Repo Truths
+## Working style for future Claude handoffs
 
-- Stack: Vite + Express
-- Scripts: `dev`, `build`, `preview`, `clean`, `lint`
-- `lint` maps to `tsc --noEmit`
-- AI SDK: `@anthropic-ai/sdk` — model `claude-sonnet-4-5`
-- All AI calls are server-side in `server.ts`
-- `server.ts` uses multer for file uploads, pdfjs-dist + mammoth for ingestion
-- `data-store.json` is the server-side backup store (primary is client IndexedDB)
-- Downstream features — sources, chat, draft — are still mocked
+- Read `docs/ladot-demo/00-demo-scope.md` through `04-project-data-and-role-model.md` before major implementation work once those files exist.
+- Prefer additive changes over rewrites.
+- Preserve local-first behavior.
+- Prefer explicit errors over silent fallbacks.
+- Do not remove the current shell to achieve demo theming.
 
-## File Responsibilities
+## Supporting docs
 
-```
-server.ts             ← All AI calls, document processing, persistence coordination
-src/pages/            ← UI only — fetches from Express, renders results
-src/lib/              ← Shared frontend utilities (db.ts for IndexedDB, utils.ts for cn())
-src/types.ts          ← Shared type contracts between frontend and backend
-```
+LA DOTD demo planning docs live in:
 
-## API Contract (Server ↔ Frontend)
+- `docs/ladot-demo/`
 
-All endpoints are under `/api/`. The frontend never calls Claude directly.
+Suggested specialist handoff briefs live in:
 
-| Method | Endpoint | Purpose |
-|---|---|---|
-| POST | `/api/analyze` | Upload files + run Claude analysis, return result |
-| POST | `/api/save-analysis` | Patch analysis edits from DecisionSummaryPage |
-| GET  | `/api/store` | Read server backup store (fallback) |
-| POST | `/api/threads/:id/draft` | Generate draft response (Phase 8) |
-| POST | `/api/threads/:id/chat` | Ask a question about documents (Phase 7) |
-
-## IndexedDB Schema (Frontend Persistence)
-
-```
-Store: threads   — keyPath: 'id'
-  NSBThread {
-    id, createdAt, updatedAt,
-    projectData,
-    analysis,
-    contract (ExtractedDocument with pages + chunks),
-    correspondence (ExtractedDocument with pages + chunks),
-    citations?,
-    draft?,
-    chatHistory?
-  }
-
-Store: preferences — tiny UI state only
-```
-
-## Phase Gate Commands
-
-| Command | When to Use |
-|---|---|
-| `/repo-audit` | Before starting any phase — verify current state |
-| `/phase-plan N` | Plan all work items for phase N |
-| `/phase-gate N` | Gate check before closing phase N |
-| `/smoke-check` | After any meaningful change |
-| `/regression-check` | Before merging or closing a phase |
-| `/ship-check` | Before any production deploy |
-
-## Known Issues Entering Phase 4
-
-- `data-store.json` / `/api/store` still exist as server backup — to be cleaned up later
-- Sources, Draft, and Chat pages contain hardcoded placeholder content — Phases 6, 8, 7
-- Sidebar still shows "Project Alpha" / "Contractor: BuildCorp" — Phase 9
+- `.claude/agents/`
