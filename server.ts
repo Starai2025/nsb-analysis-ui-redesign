@@ -9,22 +9,23 @@ import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 import Anthropic from "@anthropic-ai/sdk";
 import "dotenv/config";
 import {
-  KnowledgeBundle,
   buildAnalysisSystemPrompt,
   buildDraftSystemPrompt,
   buildReportSystemPrompt,
   loadKnowledge,
 } from "./knowledge.ts";
-import {
+import type { KnowledgeBundle } from "./knowledge.ts";
+import type {
   IngestionStore, ExtractedDocument, ExtractedChunk,
   ExtractedPage, DocumentType, Citation,
-} from "./src/types.js";
+} from "./src/types.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
 const STORE_PATH = path.join(__dirname, "data-store.json");
 const upload     = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
+const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-20250514";
 
 (pdfjsLib as any).GlobalWorkerOptions.workerSrc = "";
 
@@ -359,7 +360,7 @@ async function runAnalysis(
   try {
     const response = await withRetry(
       () => client.messages.create({
-        model:      "claude-sonnet-4-5",
+        model:      ANTHROPIC_MODEL,
         max_tokens: 2048,
         system:     buildAnalysisSystemPrompt(knowledge),
         tools:      [ANALYSIS_TOOL],
@@ -441,7 +442,7 @@ async function extractCitations(
 
     const response = await withRetry(
       () => client.messages.create({
-        model:      "claude-sonnet-4-5",
+        model:      ANTHROPIC_MODEL,
         max_tokens: 1024,
         system:     "You are a construction contract analyst. Identify specific contract clauses that support the provided analysis findings. Call submit_citations with your results.",
         tools:      [CITATION_TOOL],
@@ -659,7 +660,7 @@ Call submit_report with all 12 sections completed.`;
 
   const response = await withRetry(
     () => client.messages.create({
-      model:       "claude-sonnet-4-5",
+      model:       ANTHROPIC_MODEL,
       max_tokens:  4096,
       system:      buildReportSystemPrompt(knowledge),
       tools:       [REPORT_TOOL],
@@ -771,7 +772,7 @@ Call submit_draft with the completed letter and strategy.`;
 
   const response = await withRetry(
     () => client.messages.create({
-      model:       "claude-sonnet-4-5",
+      model:       ANTHROPIC_MODEL,
       max_tokens:  3000,
       system:      buildDraftSystemPrompt(knowledge),
       tools:       [DRAFT_TOOL],
@@ -1063,7 +1064,7 @@ async function startServer() {
       const client = new Anthropic({ apiKey });
       const response = await withRetry(
         () => client.messages.create({
-          model:      "claude-sonnet-4-5",
+          model:      ANTHROPIC_MODEL,
           max_tokens: 512,
           system: `You are a construction contract analyst. Answer questions strictly from the provided contract excerpts.
 
@@ -1103,21 +1104,14 @@ Rules:
     }
   });
 
-  // ── Vite / static ──────────────────────────────────────────────────────────
-  if (process.env.NODE_ENV !== "production") {
+  // ── Frontend serving ───────────────────────────────────────────────────────
+  const distPath = path.join(process.cwd(), "dist");
+  if (process.env.NODE_ENV === "production") {
+    app.use(express.static(distPath));
+    app.get("*", (_req, res) => res.sendFile(path.join(distPath, "index.html")));
+  } else {
     const vite = await createViteServer({ server: { middlewareMode: true }, appType: "spa" });
     app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), "dist");
-    try {
-      await fs.access(distPath);
-      app.use(express.static(distPath));
-      app.get("*", (_req, res) => res.sendFile(path.join(distPath, "index.html")));
-    } catch {
-      console.warn("Dist not found — falling back to Vite middleware.");
-      const vite = await createViteServer({ server: { middlewareMode: true }, appType: "spa" });
-      app.use(vite.middlewares);
-    }
   }
 
   app.listen(PORT, "0.0.0.0", () => {

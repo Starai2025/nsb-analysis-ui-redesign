@@ -4,13 +4,13 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx server.ts",
+    "dev": "node --experimental-strip-types server.ts",
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
     "test:e2e": "playwright test",
-    "start": "NODE_ENV=production npx tsx server.ts"
+    "start": "node --experimental-strip-types -e \"process.env.NODE_ENV='production'; import('./server.ts')\""
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.86.1",
@@ -33,6 +33,7 @@
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.14.0",
     "tailwind-merge": "^3.5.0",
+    "tsx": "^4.21.0",
     "vite": "^6.2.0"
   },
   "devDependencies": {
@@ -42,7 +43,6 @@
     "autoprefixer": "^10.4.21",
     "playwright": "^1.59.1",
     "tailwindcss": "^4.1.14",
-    "tsx": "^4.21.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"
   }
