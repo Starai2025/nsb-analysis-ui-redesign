@@ -39,9 +39,21 @@ export interface ProjectData {
   demoProfile?: string;
   issueMode?: string;
   scenarioSummary?: string;
+  projectProfileId?: ProjectProfileId;
+  primaryRoleId?: string;
 }
 
 export type DocumentType = 'contract' | 'correspondence';
+export type ProjectProfileId = 'nsb-default' | 'ladot-calcasieu';
+export type ContractChainPosition =
+  | 'owner-client'
+  | 'agency-reviewer'
+  | 'concessionaire'
+  | 'builder'
+  | 'lead-designer'
+  | 'designer-of-record'
+  | 'internal-reviewer';
+
 export type DocumentCategory =
   | 'governing-agreement'
   | 'correspondence-review-comments'
@@ -84,6 +96,27 @@ export type DeadlineType =
 export type DeadlineStatus = 'open' | 'watch' | 'completed' | 'dismissed' | 'superseded';
 export type OutputOrigin = 'generated' | 'user-edited' | 'generated-and-edited';
 export type OutputVersionStatus = 'working' | 'current' | 'archived' | 'superseded';
+
+export interface ProjectProfile {
+  id: ProjectProfileId;
+  label: string;
+  state?: string;
+  agency?: string;
+  deliveryModel?: string;
+  ownerClient?: string;
+  leadDesigner?: string;
+  description?: string;
+  defaultIssueMode?: string;
+}
+
+export interface ProjectRole {
+  id: string;
+  label: string;
+  organization?: string;
+  contractChainPosition: ContractChainPosition;
+  counterpartyTo?: ContractChainPosition;
+  description?: string;
+}
 
 export interface ExtractedPage {
   pageNumber: number;
@@ -134,13 +167,15 @@ export interface ProjectRecord {
   updatedAt: string;
   status: WorkspaceStatus;
   projectData: ProjectData;
+  profileId?: ProjectProfileId;
+  primaryRoleId?: string;
   currentAnalysisId?: string;
   currentReportId?: string;
   currentDraftId?: string;
   lastError?: WorkspaceError | null;
 }
 
-export interface ProjectDocumentRecord {
+export interface ProjectDocument {
   id: string;
   projectId: string;
   category: DocumentCategory;
@@ -157,6 +192,8 @@ export interface ProjectDocumentRecord {
   status: 'staged' | 'used-in-analysis' | 'reference-only';
   usedInLatestAnalysis: boolean;
 }
+
+export type ProjectDocumentRecord = ProjectDocument;
 
 export interface ProjectAnalysisRecord {
   id: string;
@@ -235,6 +272,44 @@ export interface DeadlineRecord {
   sourcePage?: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ReportVersionReference {
+  currentVersionId?: string;
+  versionIds: string[];
+  latestGeneratedAt?: string;
+}
+
+export interface DraftVersionReference {
+  currentVersionId?: string;
+  versionIds: string[];
+  latestGeneratedAt?: string;
+}
+
+export interface ArtifactReference {
+  id: string;
+  projectId: string;
+  kind: string;
+  mimeType?: string;
+  name?: string;
+  createdAt: string;
+}
+
+export interface ActiveProjectSummary {
+  projectId: string;
+  name: string;
+  contractNumber: string;
+  changeRequestId: string;
+  status: WorkspaceStatus;
+  profileId?: ProjectProfileId;
+  primaryRoleId?: string;
+  currentAnalysisId?: string;
+  currentReportId?: string;
+  currentDraftId?: string;
+  documentCount: number;
+  issueCount: number;
+  updatedAt: string;
+  lastError?: WorkspaceError | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -370,11 +445,11 @@ export interface DraftVersionRecord {
 }
 
 export interface ArtifactRecord {
-  id: string;
-  projectId: string;
-  kind: string;
-  mimeType?: string;
-  name?: string;
+  id: ArtifactReference['id'];
+  projectId: ArtifactReference['projectId'];
+  kind: ArtifactReference['kind'];
+  mimeType?: ArtifactReference['mimeType'];
+  name?: ArtifactReference['name'];
   createdAt: string;
   updatedAt: string;
   arrayBuffer?: ArrayBuffer;
