@@ -39,6 +39,7 @@ export const DRAFTS_STORE = 'drafts';
 export const ARTIFACTS_STORE = 'artifacts';
 
 export const CURRENT_THREAD_ID = 'current';
+export const ACTIVE_PROJECT_PREFERENCE_KEY = 'activeProjectId';
 const PROJECT_INDEX = 'projectId';
 
 export interface NSBThread {
@@ -186,6 +187,7 @@ export async function saveCurrentThread(
   const tx = db.transaction(
     [
       THREADS,
+      PREFS,
       PROJECTS_STORE,
       DOCUMENTS_STORE,
       ANALYSES_STORE,
@@ -197,6 +199,7 @@ export async function saveCurrentThread(
   );
 
   tx.objectStore(THREADS).put(thread);
+  tx.objectStore(PREFS).put(scaffold.project.id, ACTIVE_PROJECT_PREFERENCE_KEY);
   tx.objectStore(PROJECTS_STORE).put(scaffold.project);
   tx.objectStore(ANALYSES_STORE).put(scaffold.analysis);
 
@@ -248,6 +251,7 @@ export async function clearCurrentThread(): Promise<void> {
   const tx = db.transaction(
     [
       THREADS,
+      PREFS,
       PROJECTS_STORE,
       DOCUMENTS_STORE,
       ANALYSES_STORE,
@@ -263,6 +267,7 @@ export async function clearCurrentThread(): Promise<void> {
   );
 
   tx.objectStore(THREADS).delete(CURRENT_THREAD_ID);
+  tx.objectStore(PREFS).delete(ACTIVE_PROJECT_PREFERENCE_KEY);
   tx.objectStore(PROJECTS_STORE).delete(projectId);
 
   deleteAllByProjectId(tx, DOCUMENTS_STORE, projectId);

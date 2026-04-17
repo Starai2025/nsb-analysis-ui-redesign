@@ -12,6 +12,7 @@ import type {
   SubmittalRecord,
 } from '../types';
 import {
+  ACTIVE_PROJECT_PREFERENCE_KEY,
   ANALYSES_STORE,
   ARTIFACTS_STORE,
   COMMENTS_STORE,
@@ -22,7 +23,9 @@ import {
   PROJECTS_STORE,
   REPORTS_STORE,
   SUBMITTALS_STORE,
+  getPreference,
   openDatabase,
+  setPreference,
 } from './db';
 import { LEGACY_COMPAT_PROJECT_ID } from './storageAdapter';
 
@@ -84,8 +87,26 @@ async function getAllByProjectId<T>(storeName: ProjectScopedStoreName, projectId
   return records;
 }
 
+function stripArtifactBuffers(record: ArtifactRecord): ArtifactRecord {
+  const { arrayBuffer, payload, ...rest } = record;
+  return rest;
+}
+
 export async function saveProjectRecord(record: ProjectRecord): Promise<void> {
   await putRecord(PROJECTS_STORE, record);
+}
+
+export async function setActiveProjectId(projectId: string | null): Promise<void> {
+  if (projectId) {
+    await setPreference(ACTIVE_PROJECT_PREFERENCE_KEY, projectId);
+    return;
+  }
+
+  await setPreference(ACTIVE_PROJECT_PREFERENCE_KEY, null);
+}
+
+export async function loadActiveProjectId(): Promise<string | null> {
+  return getPreference<string>(ACTIVE_PROJECT_PREFERENCE_KEY);
 }
 
 export async function loadProjectRecord(projectId: string): Promise<ProjectRecord | null> {
@@ -93,11 +114,23 @@ export async function loadProjectRecord(projectId: string): Promise<ProjectRecor
 }
 
 export async function loadCurrentProjectRecord(): Promise<ProjectRecord | null> {
+  const activeProjectId = await loadActiveProjectId();
+  if (activeProjectId) {
+    const activeProject = await loadProjectRecord(activeProjectId);
+    if (activeProject) {
+      return activeProject;
+    }
+  }
+
   return loadProjectRecord(LEGACY_COMPAT_PROJECT_ID);
 }
 
 export async function saveProjectDocumentRecord(record: ProjectDocumentRecord): Promise<void> {
   await putRecord(DOCUMENTS_STORE, record);
+}
+
+export async function removeProjectDocumentRecord(id: string): Promise<void> {
+  await deleteRecord(DOCUMENTS_STORE, id);
 }
 
 export async function listProjectDocumentRecords(projectId: string): Promise<ProjectDocumentRecord[]> {
@@ -164,15 +197,31 @@ export async function saveArtifactRecord(record: ArtifactRecord): Promise<void> 
   await putRecord(ARTIFACTS_STORE, record);
 }
 
-export async function listArtifactRecords(projectId: string): Promise<ArtifactRecord[]> {
-  return getAllByProjectId<ArtifactRecord>(ARTIFACTS_STORE, projectId);
+export async function loadArtifactRecord(
+  id: string,
+  options: { includeBuffer?: boolean } = {},
+): Promise<ArtifactRecord | null> {
+  const record = await getRecord<ArtifactRecord>(ARTIFACTS_STORE, id);
+  if (!record) return null;
+
+  return options.includeBuffer ? record : stripArtifactBuffers(record);
+}
+
+export async function listArtifactRecords(
+  projectId: string,
+  options: { includeBuffers?: boolean } = {},
+): Promise<ArtifactRecord[]> {
+  const records = await getAllByProjectId<ArtifactRecord>(ARTIFACTS_STORE, projectId);
+  return options.includeBuffers ? records : records.map(stripArtifactBuffers);
 }
 
 export async function removeArtifactRecord(id: string): Promise<void> {
   await deleteRecord(ARTIFACTS_STORE, id);
 }
 
-export async function loadCurrentWorkspaceSnapshot(): Promise<ProjectWorkspaceSnapshot | null> {
+export async function loadCurrentWorkspaceSnapshot(
+  options: { includeArtifactBuffers?: boolean } = {},
+): Promise<ProjectWorkspaceSnapshot | null> {
   const project = await loadCurrentProjectRecord();
   if (!project) return null;
 
@@ -186,7 +235,7 @@ export async function loadCurrentWorkspaceSnapshot(): Promise<ProjectWorkspaceSn
     listDeadlineRecords(projectId),
     listReportVersionRecords(projectId),
     listDraftVersionRecords(projectId),
-    listArtifactRecords(projectId),
+    listArtifactRecords(projectId, { includeBuffers: options.includeArtifactBuffers }),
   ]);
 
   const latestAnalysis = analyses.find((record) => record.id === project.currentAnalysisId) ?? analyses[0] ?? null;

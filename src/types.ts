@@ -41,6 +41,10 @@ export interface ProjectData {
   scenarioSummary?: string;
   projectProfileId?: ProjectProfileId;
   primaryRoleId?: string;
+  workAlreadyProceeding?: boolean;
+  noticeAlreadySent?: boolean;
+  scheduleImpactKnown?: boolean;
+  pricingImpactKnown?: boolean;
 }
 
 export type DocumentType = 'contract' | 'correspondence';
@@ -68,6 +72,13 @@ export type DocumentCategory =
   | 'directive-letter';
 
 export type DocumentAnalysisRole = 'core' | 'supporting' | 'viewer-only';
+export type DocumentExtractionStatus =
+  | 'staged-locally'
+  | 'queued'
+  | 'extracting'
+  | 'extracted'
+  | 'failed'
+  | 'not-applicable';
 export type WorkspaceStatus = 'setup' | 'ready' | 'analyzing' | 'analysis-failed' | 'analysis-ready';
 export type IssueTaxonomy =
   | 'design-correction'
@@ -180,6 +191,7 @@ export interface ProjectDocument {
   projectId: string;
   category: DocumentCategory;
   analysisRole: DocumentAnalysisRole;
+  sourceRole?: string;
   legacyType?: DocumentType;
   legacyDocumentId?: string;
   extractionId?: string;
@@ -188,7 +200,10 @@ export interface ProjectDocument {
   fileSize: number;
   uploadedAt: string;
   pageCount?: number;
+  revision?: string;
+  discipline?: string;
   blobArtifactId?: string;
+  extractionStatus: DocumentExtractionStatus;
   status: 'staged' | 'used-in-analysis' | 'reference-only';
   usedInLatestAnalysis: boolean;
 }
