@@ -26,6 +26,7 @@ const __dirname  = path.dirname(__filename);
 const STORE_PATH = path.join(__dirname, "data-store.json");
 const upload     = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-20250514";
+const MAX_ANTHROPIC_PDF_PAGES = 100;
 
 (pdfjsLib as any).GlobalWorkerOptions.workerSrc = "";
 
@@ -76,10 +77,11 @@ function chunkText(text: string, sourceId: string, pageNumber?: number): Extract
 // Document ingestion
 // ---------------------------------------------------------------------------
 
-async function ingestPDF(buffer: Buffer, docId: string): Promise<{ pages: ExtractedPage[]; chunks: ExtractedChunk[] }> {
+async function ingestPDF(buffer: Buffer, docId: string): Promise<{ pages: ExtractedPage[]; chunks: ExtractedChunk[]; pageCount?: number }> {
   const pages: ExtractedPage[] = [], chunks: ExtractedChunk[] = [];
   try {
     const pdf = await (pdfjsLib as any).getDocument({ data: new Uint8Array(buffer), disableFontFace: true, verbosity: 0 }).promise;
+    const pageCount = pdf.numPages;
     for (let p = 1; p <= pdf.numPages; p++) {
       try {
         const content = await (await pdf.getPage(p)).getTextContent();
@@ -90,6 +92,7 @@ async function ingestPDF(buffer: Buffer, docId: string): Promise<{ pages: Extrac
         }
       } catch (e) { console.warn(`Page ${p} extraction failed:`, e); }
     }
+    return { pages, chunks, pageCount };
   } catch (e) { console.warn("PDF extraction failed (possibly encrypted/image-only):", e); }
   return { pages, chunks };
 }
@@ -115,11 +118,23 @@ async function ingestDOCX(buffer: Buffer, docId: string): Promise<{ pages: Extra
 
 async function ingestDocument(buffer: Buffer, mimetype: string, originalname: string, type: DocumentType, fileSize: number): Promise<ExtractedDocument> {
   const id = `doc-${Date.now()}-${type}`;
-  const { pages, chunks } = mimetype === "application/pdf"
+  const { pages, chunks, pageCount } = mimetype === "application/pdf"
     ? await ingestPDF(buffer, id)
-    : await ingestDOCX(buffer, id);
+    : { ...(await ingestDOCX(buffer, id)), pageCount: undefined };
   console.log(`  Ingested "${originalname}": ${pages.length} pages, ${chunks.length} chunks`);
-  return { id, name: originalname, type, pages, chunks, metadata: { fileSize, mimeType: mimetype, uploadedAt: new Date().toISOString() } };
+  return {
+    id,
+    name: originalname,
+    type,
+    pages,
+    chunks,
+    metadata: {
+      fileSize,
+      mimeType: mimetype,
+      uploadedAt: new Date().toISOString(),
+      pageCount,
+    },
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -128,9 +143,28 @@ async function ingestDocument(buffer: Buffer, mimetype: string, originalname: st
 
 const MAX_ESTIMATED_TOKENS = 150_000;
 
-function estimateTokens(buffer: Buffer, mimetype: string, doc: ExtractedDocument): number {
-  if (mimetype === "application/pdf") return Math.ceil(buffer.length * 0.75 / 4);
-  const text = doc.pages?.map(p => p.text).join(" ") ?? "";
+function getDocumentText(doc: ExtractedDocument): string {
+  if (doc.pages?.length) {
+    return doc.pages.map((p) => `[Page ${p.pageNumber}]\n${p.text}`).join("\n\n");
+  }
+  if (doc.chunks?.length) {
+    return doc.chunks.map((c) => {
+      const label = c.pageNumber != null ? `Page ${c.pageNumber}` : "Extracted text";
+      return `[${label}]\n${c.text}`;
+    }).join("\n\n");
+  }
+  return "";
+}
+
+function shouldUsePdfBinary(mimetype: string, doc: ExtractedDocument): boolean {
+  if (mimetype !== "application/pdf") return false;
+  const pageCount = doc.metadata.pageCount ?? doc.pages?.length ?? 0;
+  return pageCount > 0 && pageCount <= MAX_ANTHROPIC_PDF_PAGES;
+}
+
+function estimateTokens(buffer: Buffer, mimetype: string, doc: ExtractedDocument, usePdfBinary: boolean): number {
+  if (usePdfBinary) return Math.ceil(buffer.length * 0.75 / 4);
+  const text = getDocumentText(doc);
   return Math.ceil(text.length / 4);
 }
 
@@ -146,8 +180,13 @@ function truncateDocForOversize(doc: ExtractedDocument, maxPages: number): Extra
 // Build Claude message content
 // ---------------------------------------------------------------------------
 
-function buildDocumentContent(buffer: Buffer, mimetype: string, doc: ExtractedDocument): Anthropic.MessageParam["content"] {
-  if (mimetype === "application/pdf") {
+function buildDocumentContent(
+  buffer: Buffer,
+  mimetype: string,
+  doc: ExtractedDocument,
+  options: { usePdfBinary: boolean },
+): Anthropic.MessageParam["content"] {
+  if (options.usePdfBinary) {
     return [{
       type: "document",
       source: { type: "base64", media_type: "application/pdf", data: buffer.toString("base64") },
@@ -155,7 +194,16 @@ function buildDocumentContent(buffer: Buffer, mimetype: string, doc: ExtractedDo
       cache_control: { type: "ephemeral" },
     } as any];
   }
-  const text = doc.pages?.map(p => `[Page ${p.pageNumber}]\n${p.text}`).join("\n\n") ?? `Document: ${doc.name}`;
+  const text = getDocumentText(doc);
+  if (!text.trim()) {
+    const pageCount = doc.metadata.pageCount ?? doc.pages?.length ?? 0;
+    if (mimetype === "application/pdf" && pageCount > MAX_ANTHROPIC_PDF_PAGES) {
+      throw new Error(
+        `"${doc.name}" has ${pageCount} pages. PDFs over ${MAX_ANTHROPIC_PDF_PAGES} pages must contain selectable text so they can be analyzed as extracted text. Please upload a text-based PDF, DOCX, or a smaller page range.`,
+      );
+    }
+    throw new Error(`"${doc.name}" does not contain enough extractable text to analyze. Please upload a text-based PDF or DOCX file.`);
+  }
   return [{ type: "text", text: `Document: ${doc.name}\n\n${text}` }];
 }
 
@@ -327,9 +375,12 @@ async function runAnalysis(
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set on the server.");
   const client = new Anthropic({ apiKey });
 
-  // Token budget check — truncate DOCX pages if needed, keep PDF as-is
-  const contractTokens = estimateTokens(contractBuffer, contractMime, contractDoc);
-  const corrTokens     = estimateTokens(corrBuffer,     corrMime,     corrDoc);
+  let contractUsePdfBinary = shouldUsePdfBinary(contractMime, contractDoc);
+  let corrUsePdfBinary     = shouldUsePdfBinary(corrMime,     corrDoc);
+
+  // Token budget check — oversized uploads fall back to extracted text and truncation.
+  const contractTokens = estimateTokens(contractBuffer, contractMime, contractDoc, contractUsePdfBinary);
+  const corrTokens     = estimateTokens(corrBuffer,     corrMime,     corrDoc,     corrUsePdfBinary);
   const totalTokens    = contractTokens + corrTokens;
 
   let effectiveContractDoc = contractDoc;
@@ -341,12 +392,14 @@ async function runAnalysis(
     const cRatio   = contractTokens / totalTokens;
     const maxContr = Math.floor((budget * cRatio) / (CHUNK_SIZE / 4));
     const maxCorr  = Math.floor((budget * (1 - cRatio)) / (CHUNK_SIZE / 4));
-    if (contractMime !== "application/pdf") effectiveContractDoc = truncateDocForOversize(contractDoc, Math.max(maxContr, 10));
-    if (corrMime     !== "application/pdf") effectiveCorrDoc     = truncateDocForOversize(corrDoc,     Math.max(maxCorr,  5));
+    effectiveContractDoc = truncateDocForOversize(contractDoc, Math.max(maxContr, 10));
+    effectiveCorrDoc     = truncateDocForOversize(corrDoc,     Math.max(maxCorr,  5));
+    contractUsePdfBinary = false;
+    corrUsePdfBinary     = false;
   }
 
-  const contractContent = buildDocumentContent(contractBuffer, contractMime, effectiveContractDoc);
-  const corrContent     = buildDocumentContent(corrBuffer,     corrMime,     effectiveCorrDoc);
+  const contractContent = buildDocumentContent(contractBuffer, contractMime, effectiveContractDoc, { usePdfBinary: contractUsePdfBinary });
+  const corrContent     = buildDocumentContent(corrBuffer,     corrMime,     effectiveCorrDoc,     { usePdfBinary: corrUsePdfBinary });
 
   const userContent: Anthropic.MessageParam["content"] = [
     ...(contractContent as any[]),

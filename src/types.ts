@@ -55,6 +55,7 @@ export interface ExtractedDocument {
     fileSize: number;
     mimeType: string;
     uploadedAt: string;
+    pageCount?: number;
   };
 }
 
