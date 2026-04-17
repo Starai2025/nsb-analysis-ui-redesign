@@ -24,12 +24,66 @@ export interface Citation {
 }
 
 export interface ProjectData {
+  id?: string;
   name: string;
   contractNumber: string;
   changeRequestId: string;
+  state?: string;
+  agency?: string;
+  deliveryModel?: string;
+  ownerClient?: string;
+  userRole?: string;
+  concessionaire?: string;
+  builder?: string;
+  leadDesigner?: string;
+  demoProfile?: string;
+  issueMode?: string;
+  scenarioSummary?: string;
 }
 
 export type DocumentType = 'contract' | 'correspondence';
+export type DocumentCategory =
+  | 'governing-agreement'
+  | 'correspondence-review-comments'
+  | 'technical-provisions'
+  | 'proposal-atcs'
+  | 'design-package'
+  | 'marked-up-review-pdf'
+  | 'meeting-minutes'
+  | 'submittal-log'
+  | 'pricing-backup'
+  | 'schedule-backup'
+  | 'directive-letter';
+
+export type DocumentAnalysisRole = 'core' | 'supporting' | 'viewer-only';
+export type WorkspaceStatus = 'setup' | 'ready' | 'analyzing' | 'analysis-failed' | 'analysis-ready';
+export type IssueTaxonomy =
+  | 'design-correction'
+  | 'incomplete-submittal'
+  | 'conflict-in-criteria'
+  | 'stricter-standard-enforcement'
+  | 'owner-driven-change'
+  | 'agency-interpretation-shift'
+  | 'delay-risk'
+  | 'compensation-risk'
+  | 'directive-candidate'
+  | 'mixed-issue'
+  | 'unclear';
+
+export type IssueSeverity = 'low' | 'medium' | 'high' | 'critical';
+export type IssueConfidence = 'high' | 'medium' | 'low';
+export type DeadlineType =
+  | 'submittal-response-reminder'
+  | 'delay-notice-review'
+  | 'compensation-notice-review'
+  | 'directive-follow-up'
+  | 'internal-escalation'
+  | 'report-due'
+  | 'draft-due';
+
+export type DeadlineStatus = 'open' | 'watch' | 'completed' | 'dismissed' | 'superseded';
+export type OutputOrigin = 'generated' | 'user-edited' | 'generated-and-edited';
+export type OutputVersionStatus = 'working' | 'current' | 'archived' | 'superseded';
 
 export interface ExtractedPage {
   pageNumber: number;
@@ -65,6 +119,122 @@ export interface IngestionStore {
   analysis?: AnalysisResult;
   projectData?: ProjectData;
   citations?: Citation[];
+}
+
+export interface WorkspaceError {
+  source: 'analysis' | 'report' | 'draft' | 'sources' | 'storage';
+  message: string;
+  at: string;
+}
+
+export interface ProjectRecord {
+  id: string;
+  legacyThreadId: string;
+  createdAt: string;
+  updatedAt: string;
+  status: WorkspaceStatus;
+  projectData: ProjectData;
+  currentAnalysisId?: string;
+  currentReportId?: string;
+  currentDraftId?: string;
+  lastError?: WorkspaceError | null;
+}
+
+export interface ProjectDocumentRecord {
+  id: string;
+  projectId: string;
+  category: DocumentCategory;
+  analysisRole: DocumentAnalysisRole;
+  legacyType?: DocumentType;
+  legacyDocumentId?: string;
+  extractionId?: string;
+  name: string;
+  mimeType: string;
+  fileSize: number;
+  uploadedAt: string;
+  pageCount?: number;
+  blobArtifactId?: string;
+  status: 'staged' | 'used-in-analysis' | 'reference-only';
+  usedInLatestAnalysis: boolean;
+}
+
+export interface ProjectAnalysisRecord {
+  id: string;
+  projectId: string;
+  contractDocumentId?: string;
+  correspondenceDocumentId?: string;
+  createdAt: string;
+  updatedAt: string;
+  analysis: AnalysisResult;
+  citations: Citation[];
+  knowledgeMeta?: Record<string, unknown>;
+}
+
+export interface IssueRecord {
+  id: string;
+  projectId: string;
+  title: string;
+  taxonomy: IssueTaxonomy;
+  status: 'open' | 'watch' | 'closed';
+  severity: IssueSeverity;
+  confidence: IssueConfidence;
+  summary: string;
+  responsibilityHypothesis?: string;
+  sourceDocumentIds: string[];
+  correspondenceItemIds: string[];
+  linkedDeadlineIds: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SubmittalRecord {
+  id: string;
+  projectId: string;
+  issueId?: string;
+  name: string;
+  discipline?: string;
+  revisionLabel?: string;
+  status:
+    | 'draft'
+    | 'submitted'
+    | 'under-review'
+    | 'rejected'
+    | 'revise-and-resubmit'
+    | 'accepted-with-comments'
+    | 'accepted'
+    | 'superseded';
+  submittedAt?: string;
+  respondedAt?: string;
+  reviewOutcome?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CommentRecord {
+  id: string;
+  projectId: string;
+  issueId?: string;
+  documentId: string;
+  author?: string;
+  direction?: 'incoming' | 'outgoing' | 'internal';
+  sentAt?: string;
+  summary: string;
+  pageRefs?: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DeadlineRecord {
+  id: string;
+  projectId: string;
+  issueId?: string;
+  type: DeadlineType;
+  status: DeadlineStatus;
+  dueAt?: string;
+  sourceDocumentId?: string;
+  sourcePage?: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -172,4 +342,54 @@ export interface Draft {
   updatedAt: string;
   letter:    string;
   strategy:  DraftStrategy;
+}
+
+export interface ReportVersionRecord {
+  id: string;
+  projectId: string;
+  analysisId?: string;
+  versionNumber: number;
+  status: OutputVersionStatus;
+  origin: OutputOrigin;
+  createdAt: string;
+  updatedAt: string;
+  report: Report;
+}
+
+export interface DraftVersionRecord {
+  id: string;
+  projectId: string;
+  analysisId?: string;
+  reportVersionId?: string;
+  versionNumber: number;
+  status: OutputVersionStatus;
+  origin: OutputOrigin;
+  createdAt: string;
+  updatedAt: string;
+  draft: Draft;
+}
+
+export interface ArtifactRecord {
+  id: string;
+  projectId: string;
+  kind: string;
+  mimeType?: string;
+  name?: string;
+  createdAt: string;
+  updatedAt: string;
+  arrayBuffer?: ArrayBuffer;
+  payload?: Record<string, unknown>;
+}
+
+export interface ProjectWorkspaceSnapshot {
+  project: ProjectRecord | null;
+  documents: ProjectDocumentRecord[];
+  latestAnalysis: ProjectAnalysisRecord | null;
+  issues: IssueRecord[];
+  submittals: SubmittalRecord[];
+  comments: CommentRecord[];
+  deadlines: DeadlineRecord[];
+  reports: ReportVersionRecord[];
+  drafts: DraftVersionRecord[];
+  artifacts: ArtifactRecord[];
 }
