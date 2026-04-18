@@ -51,6 +51,7 @@ export default function SourcesPage() {
   const [loading,   setLoading]   = useState(true);
   const [search,    setSearch]    = useState('');
   const [zoom,      setZoom]      = useState(100);
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Precise load state for accurate empty-state messaging
   const [noThread,         setNoThread]         = useState(false);
@@ -130,6 +131,7 @@ export default function SourcesPage() {
 
   // Jump to page — iframe uses hash fragment, text viewer uses scrollIntoView
   const scrollToPage = (pageNumber: number) => {
+    setCurrentPage(pageNumber);
     if (pdfUrl && iframeRef.current) {
       iframeRef.current.src = `${pdfUrl}#page=${pageNumber}`;
     } else {
@@ -201,15 +203,22 @@ export default function SourcesPage() {
         <div className="h-14 flex items-center justify-between px-6 bg-slate-50 border-b border-slate-200 shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             <FileText className="text-primary shrink-0" size={18} />
-            <h2 className="font-headline font-bold text-on-surface text-sm truncate">
+            <h2 id="sourcesFileName" className="font-headline font-bold text-on-surface text-sm truncate">
               {docName || 'Contract Document'}
             </h2>
             {pages.length > 0 && !pdfUrl && (
               <span className="text-[10px] text-slate-400 shrink-0">{pages.length} pages (text)</span>
             )}
             {pdfUrl && (
-              <span className="text-[10px] text-emerald-600 shrink-0 font-bold">PDF Viewer</span>
+              <span id="sourcesViewerMode" className="text-[10px] text-emerald-600 shrink-0 font-bold">PDF Viewer</span>
             )}
+            {!pdfUrl && (
+              <span id="sourcesViewerMode" className="text-[10px] text-slate-400 shrink-0 font-bold">Text Viewer</span>
+            )}
+          </div>
+          <div className="sr-only">
+            <span id="viewerCurrentPage">{currentPage}</span>
+            <span id="viewerTotalPages">{Math.max(outline.length, pages.length, currentPage)}</span>
           </div>
           {/* Zoom only relevant for text view */}
           {!pdfUrl && (
@@ -237,7 +246,7 @@ export default function SourcesPage() {
               ) : (
                 outline.map(item => (
                   <button key={item.pageNumber} onClick={() => scrollToPage(item.pageNumber)}
-                    className="w-full text-left px-3 py-2 rounded-lg text-[11px] font-medium text-slate-600 hover:bg-slate-50 hover:text-primary transition-all flex items-center justify-between gap-2">
+                    className="thumb-item w-full text-left px-3 py-2 rounded-lg text-[11px] font-medium text-slate-600 hover:bg-slate-50 hover:text-primary transition-all flex items-center justify-between gap-2">
                     <span className="truncate">{item.heading}</span>
                     {item.hasCitation && <div className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />}
                   </button>
@@ -258,6 +267,7 @@ export default function SourcesPage() {
             {/* PDF iframe viewer */}
             {pdfUrl && (
               <iframe
+                id="sourcesCanvas"
                 ref={iframeRef}
                 src={pdfUrl}
                 className="w-full h-full border-0 bg-white"
@@ -269,6 +279,7 @@ export default function SourcesPage() {
             {!pdfUrl && pages.length > 0 && (
               <div className="h-full overflow-y-auto p-8 scroll-smooth">
                 <div
+                  id="sourcesCanvas"
                   className="space-y-6 mx-auto"
                   style={{ maxWidth: `${Math.round(760 * zoom / 100)}px`, fontSize: `${zoom}%` }}
                 >
@@ -336,7 +347,7 @@ export default function SourcesPage() {
       </section>
 
       {/* ── Right: Citations Panel ── */}
-      <section className="w-[420px] flex flex-col bg-white overflow-hidden shadow-2xl z-10 shrink-0">
+      <section id="citationsPanel" className="w-[420px] flex flex-col bg-white overflow-hidden shadow-2xl z-10 shrink-0">
 
         {/* Panel header */}
         <div className="p-6 border-b border-slate-100 bg-slate-50/50">

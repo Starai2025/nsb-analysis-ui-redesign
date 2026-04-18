@@ -5,6 +5,7 @@ import { fileURLToPath } from "url";
 import fs from "fs/promises";
 import multer from "multer";
 import mammoth from "mammoth";
+import JSZip from "jszip";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 import Anthropic from "@anthropic-ai/sdk";
 import "dotenv/config";
@@ -27,8 +28,6 @@ const STORE_PATH = path.join(__dirname, "data-store.json");
 const upload     = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-20250514";
 const MAX_ANTHROPIC_PDF_PAGES = 100;
-
-(pdfjsLib as any).GlobalWorkerOptions.workerSrc = "";
 
 // ---------------------------------------------------------------------------
 // Persistent store (server-side backup — primary store is client IndexedDB)
@@ -80,7 +79,14 @@ function chunkText(text: string, sourceId: string, pageNumber?: number): Extract
 async function ingestPDF(buffer: Buffer, docId: string): Promise<{ pages: ExtractedPage[]; chunks: ExtractedChunk[]; pageCount?: number }> {
   const pages: ExtractedPage[] = [], chunks: ExtractedChunk[] = [];
   try {
-    const pdf = await (pdfjsLib as any).getDocument({ data: new Uint8Array(buffer), disableFontFace: true, verbosity: 0 }).promise;
+    // Node-side ingestion should avoid pdf.js worker bootstrapping, which can fail
+    // in production/server environments and leave large PDFs with zero extracted pages.
+    const pdf = await (pdfjsLib as any).getDocument({
+      data: new Uint8Array(buffer),
+      disableFontFace: true,
+      verbosity: 0,
+      disableWorker: true,
+    }).promise;
     const pageCount = pdf.numPages;
     for (let p = 1; p <= pdf.numPages; p++) {
       try {
@@ -100,7 +106,23 @@ async function ingestPDF(buffer: Buffer, docId: string): Promise<{ pages: Extrac
 async function ingestDOCX(buffer: Buffer, docId: string): Promise<{ pages: ExtractedPage[]; chunks: ExtractedChunk[] }> {
   const pages: ExtractedPage[] = [], chunks: ExtractedChunk[] = [];
   try {
-    const fullText = (await mammoth.extractRawText({ buffer })).value;
+    let fullText = "";
+    if (looksLikeZipContainer(buffer)) {
+      fullText = (await mammoth.extractRawText({ buffer })).value;
+      if (fullText.replace(/\s+/g, " ").trim().length < 25) {
+        const fallbackText = await extractDOCXArchiveText(buffer);
+        if (fallbackText.length > fullText.length) {
+          console.log(`  DOCX fallback extractor recovered ${fallbackText.length} chars of OOXML text`);
+          fullText = fallbackText;
+        }
+      }
+    } else {
+      const plainText = extractPlainTextBuffer(buffer);
+      if (plainText) {
+        console.log(`  Non-OOXML .docx fallback recovered ${plainText.length} chars of plain text`);
+        fullText = plainText;
+      }
+    }
     const PAGE_SIZE = 3000;
     let pageNumber = 1, pos = 0;
     while (pos < fullText.length) {
@@ -114,6 +136,98 @@ async function ingestDOCX(buffer: Buffer, docId: string): Promise<{ pages: Extra
     }
   } catch (e) { console.warn("DOCX extraction failed:", e); }
   return { pages, chunks };
+}
+
+function looksLikeZipContainer(buffer: Buffer): boolean {
+  if (buffer.length < 4) return false;
+  const signature = buffer.subarray(0, 4).toString("binary");
+  return signature === "PK\u0003\u0004" || signature === "PK\u0005\u0006" || signature === "PK\u0007\u0008";
+}
+
+function extractPlainTextBuffer(buffer: Buffer): string {
+  const text = buffer.toString("utf8");
+  const printableChars = text.match(/[\p{L}\p{N}\p{P}\p{Zs}\r\n\t]/gu)?.length ?? 0;
+  const ratio = text.length > 0 ? printableChars / text.length : 0;
+  if (ratio < 0.85) {
+    return "";
+  }
+
+  return text
+    .replace(/\u0000/g, "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function decodeXmlEntities(value: string): string {
+  return value
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&#xA;/gi, "\n")
+    .replace(/&#xD;/gi, "\n")
+    .replace(/&#9;/g, "\t");
+}
+
+function extractTextFromOOXML(xml: string): string {
+  return decodeXmlEntities(
+    xml
+      .replace(/<w:tab(?:\s[^>]*)?\/>/g, "\t")
+      .replace(/<w:(?:br|cr)(?:\s[^>]*)?\/>/g, "\n")
+      .replace(/<\/w:p>/g, "\n\n")
+      .replace(/<\/w:tr>/g, "\n")
+      .replace(/<\/w:tc>/g, "\t")
+      .replace(/<(?:w:t|w:delText|w:instrText)[^>]*>([\s\S]*?)<\/(?:w:t|w:delText|w:instrText)>/g, "$1")
+      .replace(/<[^>]+>/g, "")
+      .replace(/\r/g, "")
+      .replace(/[ \t]+\n/g, "\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim()
+  );
+}
+
+async function extractDOCXArchiveText(buffer: Buffer): Promise<string> {
+  try {
+    const zip = await JSZip.loadAsync(buffer);
+    const textEntryNames = Object.keys(zip.files)
+      .filter((name) =>
+        /^word\/(document|comments|footnotes|endnotes|header\d+|footer\d+)\.xml$/i.test(name)
+      )
+      .sort((a, b) => {
+        if (a === "word/document.xml") return -1;
+        if (b === "word/document.xml") return 1;
+        return a.localeCompare(b);
+      });
+
+    const sections: string[] = [];
+    for (const name of textEntryNames) {
+      const xml = await zip.file(name)?.async("string");
+      if (!xml) continue;
+
+      const text = extractTextFromOOXML(xml);
+      if (!text) continue;
+
+      if (name === "word/document.xml") {
+        sections.push(text);
+      } else {
+        const label = name
+          .replace(/^word\//i, "")
+          .replace(/\.xml$/i, "")
+          .replace(/(\D)(\d+)/g, "$1 $2")
+          .replace(/([a-z])([A-Z])/g, "$1 $2");
+        sections.push(`[${label}]\n${text}`);
+      }
+    }
+
+    return sections.join("\n\n").trim();
+  } catch (e) {
+    console.warn("DOCX archive fallback failed:", e);
+    return "";
+  }
 }
 
 async function ingestDocument(buffer: Buffer, mimetype: string, originalname: string, type: DocumentType, fileSize: number): Promise<ExtractedDocument> {
@@ -142,6 +256,41 @@ async function ingestDocument(buffer: Buffer, mimetype: string, originalname: st
 // ---------------------------------------------------------------------------
 
 const MAX_ESTIMATED_TOKENS = 150_000;
+const MAX_ANALYSIS_TEXT_CHARS = 520_000;
+const DEFAULT_PAGE_OVERHEAD_CHARS = 18;
+const CORE_CONTRACT_TERMS = [
+  "change order",
+  "changes",
+  "change",
+  "acceleration",
+  "accelerate",
+  "schedule",
+  "delay",
+  "time extension",
+  "time for completion",
+  "notice",
+  "claim",
+  "compensation",
+  "payment",
+  "fee",
+  "cost",
+  "scope",
+  "services",
+  "additional services",
+  "extra work",
+  "amendment",
+  "suspension",
+  "termination",
+  "directed",
+];
+const QUERY_STOPWORDS = new Set([
+  "about", "after", "against", "agreement", "analysis", "because", "before", "between", "change",
+  "changes", "contract", "contractor", "correspondence", "could", "date", "days", "demo", "does",
+  "early", "from", "have", "here", "including", "interchange", "into", "likely", "milestone",
+  "must", "need", "notice", "owner", "page", "pages", "payment", "project", "request", "rights",
+  "schedule", "services", "shall", "state", "their", "there", "these", "this", "through", "time",
+  "tollway", "under", "west", "with", "without", "work", "would",
+]);
 
 function getDocumentText(doc: ExtractedDocument): string {
   if (doc.pages?.length) {
@@ -168,12 +317,89 @@ function estimateTokens(buffer: Buffer, mimetype: string, doc: ExtractedDocument
   return Math.ceil(text.length / 4);
 }
 
-function truncateDocForOversize(doc: ExtractedDocument, maxPages: number): ExtractedDocument {
-  if (!doc.pages || doc.pages.length <= maxPages) return doc;
-  console.warn(`  Truncating "${doc.name}" from ${doc.pages.length} to ${maxPages} pages for token budget`);
-  const pages = doc.pages.slice(0, maxPages);
-  const pageNums = new Set(pages.map(p => p.pageNumber));
-  return { ...doc, pages, chunks: doc.chunks?.filter(c => c.pageNumber != null && pageNums.has(c.pageNumber)) };
+function getDocumentCharCount(doc: ExtractedDocument): number {
+  return getDocumentText(doc).length;
+}
+
+function extractQueryTerms(text: string): string[] {
+  const matches = text.toLowerCase().match(/[a-z][a-z-]{3,}/g) ?? [];
+  const counts = new Map<string, number>();
+
+  for (const word of matches) {
+    if (QUERY_STOPWORDS.has(word)) continue;
+    counts.set(word, (counts.get(word) ?? 0) + 1);
+  }
+
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || b[0].length - a[0].length)
+    .slice(0, 24)
+    .map(([word]) => word);
+}
+
+function scoreDocumentPage(text: string, pageNumber: number, queryTerms: string[]): number {
+  const lower = text.toLowerCase();
+  let score = pageNumber <= 5 ? 80 - (pageNumber * 5) : 0;
+
+  if (/\btable of contents\b|\bcontents\b/.test(lower)) score += 40;
+  if (/\barticle\b|\bsection\b|\bexhibit\b|\bappendix\b/.test(lower)) score += 10;
+
+  for (const term of [...CORE_CONTRACT_TERMS, ...queryTerms]) {
+    if (!term || !lower.includes(term)) continue;
+    score += CORE_CONTRACT_TERMS.includes(term) ? 12 : 8;
+  }
+
+  return score;
+}
+
+function selectDocumentPagesForBudget(doc: ExtractedDocument, maxChars: number, queryTerms: string[]): ExtractedDocument {
+  if (!doc.pages?.length) return doc;
+
+  const byPageNumber = new Map(doc.pages.map((page) => [page.pageNumber, page]));
+  const selectedPages = new Set<number>();
+  let selectedChars = 0;
+
+  const tryAddPage = (pageNumber: number) => {
+    const page = byPageNumber.get(pageNumber);
+    if (!page || selectedPages.has(pageNumber)) return false;
+
+    const pageChars = page.text.length + DEFAULT_PAGE_OVERHEAD_CHARS;
+    if (selectedChars + pageChars > maxChars && selectedPages.size > 0) {
+      return false;
+    }
+
+    selectedPages.add(pageNumber);
+    selectedChars += pageChars;
+    return true;
+  };
+
+  for (const page of doc.pages.slice(0, 5)) {
+    tryAddPage(page.pageNumber);
+  }
+
+  const rankedPages = doc.pages
+    .map((page) => ({
+      pageNumber: page.pageNumber,
+      score: scoreDocumentPage(page.text, page.pageNumber, queryTerms),
+    }))
+    .sort((a, b) => b.score - a.score || a.pageNumber - b.pageNumber);
+
+  for (const candidate of rankedPages) {
+    if (selectedChars >= maxChars) break;
+    for (const pageNumber of [candidate.pageNumber - 1, candidate.pageNumber, candidate.pageNumber + 1]) {
+      if (selectedChars >= maxChars) break;
+      tryAddPage(pageNumber);
+    }
+  }
+
+  const pages = doc.pages.filter((page) => selectedPages.has(page.pageNumber));
+  const pageNums = new Set(pages.map((page) => page.pageNumber));
+  console.warn(`  Reduced "${doc.name}" to ${pages.length} relevant pages (${selectedChars} chars) for analysis budget`);
+
+  return {
+    ...doc,
+    pages,
+    chunks: doc.chunks?.filter((chunk) => chunk.pageNumber != null && pageNums.has(chunk.pageNumber)),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -382,20 +608,46 @@ async function runAnalysis(
   const contractTokens = estimateTokens(contractBuffer, contractMime, contractDoc, contractUsePdfBinary);
   const corrTokens     = estimateTokens(corrBuffer,     corrMime,     corrDoc,     corrUsePdfBinary);
   const totalTokens    = contractTokens + corrTokens;
+  const queryTerms     = extractQueryTerms(getDocumentText(corrDoc));
 
   let effectiveContractDoc = contractDoc;
   let effectiveCorrDoc     = corrDoc;
 
   if (totalTokens > MAX_ESTIMATED_TOKENS) {
     console.warn(`  Estimated ${totalTokens} tokens — applying token budget (max ${MAX_ESTIMATED_TOKENS})`);
-    const budget   = MAX_ESTIMATED_TOKENS;
-    const cRatio   = contractTokens / totalTokens;
-    const maxContr = Math.floor((budget * cRatio) / (CHUNK_SIZE / 4));
-    const maxCorr  = Math.floor((budget * (1 - cRatio)) / (CHUNK_SIZE / 4));
-    effectiveContractDoc = truncateDocForOversize(contractDoc, Math.max(maxContr, 10));
-    effectiveCorrDoc     = truncateDocForOversize(corrDoc,     Math.max(maxCorr,  5));
     contractUsePdfBinary = false;
     corrUsePdfBinary     = false;
+  }
+
+  const contractChars = contractUsePdfBinary ? 0 : getDocumentCharCount(effectiveContractDoc);
+  const corrChars     = corrUsePdfBinary ? 0 : getDocumentCharCount(effectiveCorrDoc);
+  const totalChars    = contractChars + corrChars;
+
+  if (totalChars > MAX_ANALYSIS_TEXT_CHARS) {
+    console.warn(`  Extracted text is ${totalChars} chars — selecting relevant pages (max ${MAX_ANALYSIS_TEXT_CHARS})`);
+    const contractShare = contractChars > 0 ? contractChars / totalChars : 0;
+    let contractBudget = contractChars > 0
+      ? Math.max(Math.floor(MAX_ANALYSIS_TEXT_CHARS * contractShare), 180_000)
+      : 0;
+    let corrBudget = corrChars > 0
+      ? Math.max(MAX_ANALYSIS_TEXT_CHARS - contractBudget, Math.min(corrChars, 20_000))
+      : 0;
+
+    if (contractBudget + corrBudget > MAX_ANALYSIS_TEXT_CHARS) {
+      const overflow = contractBudget + corrBudget - MAX_ANALYSIS_TEXT_CHARS;
+      if (contractBudget >= corrBudget) {
+        contractBudget = Math.max(contractBudget - overflow, 160_000);
+      } else {
+        corrBudget = Math.max(corrBudget - overflow, 10_000);
+      }
+    }
+
+    if (!contractUsePdfBinary) {
+      effectiveContractDoc = selectDocumentPagesForBudget(contractDoc, contractBudget, queryTerms);
+    }
+    if (!corrUsePdfBinary) {
+      effectiveCorrDoc = selectDocumentPagesForBudget(corrDoc, corrBudget, queryTerms);
+    }
   }
 
   const contractContent = buildDocumentContent(contractBuffer, contractMime, effectiveContractDoc, { usePdfBinary: contractUsePdfBinary });

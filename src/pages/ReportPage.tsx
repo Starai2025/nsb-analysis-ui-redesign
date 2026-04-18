@@ -6,9 +6,8 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
-import { loadCurrentWorkspaceThreadView } from '../lib/projectStore';
 import { loadCurrentThread, saveCurrentThread, clearCurrentThread } from '../lib/db';
+import { loadCurrentWorkspaceThreadView } from '../lib/projectStore';
 import NoAnalysis from '../components/NoAnalysis';
 import {
   Report, ReportStatus, AnalysisResult, ProjectData,
@@ -70,35 +69,58 @@ function SectionHeading({ n, title }: { n: number; title: string }) {
 // ---------------------------------------------------------------------------
 
 async function exportMultiPagePDF(element: HTMLElement, filename: string): Promise<void> {
-  const canvas = await html2canvas(element, {
-    scale: 2, useCORS: true, logging: false,
-    width: element.scrollWidth, windowWidth: element.scrollWidth,
-  });
   const pdf      = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
   const pageW    = pdf.internal.pageSize.getWidth();
   const pageH    = pdf.internal.pageSize.getHeight();
   const margin   = 28;
   const contentW = pageW - margin * 2;
-  const imgH     = (canvas.height * contentW) / canvas.width;
-  const usableH  = pageH - margin * 2;
-  let remaining  = imgH, srcY = 0, first = true;
+  const footerY = pageH - 12;
+  const lineHeight = 14;
+  const maxY = pageH - margin - 20;
+  const text = element.innerText.replace(/\u00a0/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+  const paragraphs = text.split('\n');
+  let cursorY = margin;
 
-  while (remaining > 0) {
-    if (!first) pdf.addPage();
-    first = false;
-    const sliceH   = Math.min(usableH, remaining);
-    const sc       = document.createElement('canvas');
-    sc.width       = canvas.width;
-    sc.height      = Math.ceil(sliceH * (canvas.height / imgH));
-    sc.getContext('2d')!.drawImage(canvas, 0, Math.ceil(srcY * (canvas.height / imgH)), canvas.width, sc.height, 0, 0, canvas.width, sc.height);
-    pdf.addImage(sc.toDataURL('image/png'), 'PNG', margin, margin, contentW, sliceH);
+  const addFooter = () => {
     pdf.setFontSize(7);
     pdf.setTextColor(160, 160, 160);
-    pdf.text('Never Sign Blind — Confidential — Change Order Analysis Report', pageW / 2, pageH - 12, { align: 'center' });
-    srcY      += sliceH;
-    remaining -= sliceH;
+    pdf.text('Never Sign Blind — Confidential — Change Order Analysis Report', pageW / 2, footerY, { align: 'center' });
+  };
+
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(11);
+  pdf.setTextColor(30, 41, 59);
+
+  for (const paragraph of paragraphs) {
+    const content = paragraph.trim() || ' ';
+    const lines = pdf.splitTextToSize(content, contentW);
+
+    for (const line of lines) {
+      if (cursorY > maxY) {
+        addFooter();
+        pdf.addPage();
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(11);
+        pdf.setTextColor(30, 41, 59);
+        cursorY = margin;
+      }
+      pdf.text(line, margin, cursorY);
+      cursorY += lineHeight;
+    }
+
+    cursorY += 6;
   }
-  pdf.save(filename);
+
+  addFooter();
+  const blob = pdf.output('blob');
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 // ---------------------------------------------------------------------------
@@ -267,7 +289,7 @@ function ReportMemo({ report, analysisDate }: { report: Report; analysisDate: st
               <p className="text-sm text-on-surface-variant mt-1.5">{subtitle}</p>
             )}
           </div>
-          <span className={`text-[10px] font-bold px-3 py-1.5 rounded border uppercase tracking-wider shrink-0 ${statusBadgeColor[m.reportStatus] ?? statusBadgeColor['Draft']}`}>
+          <span id="reportStatusChip" className={`text-[10px] font-bold px-3 py-1.5 rounded border uppercase tracking-wider shrink-0 ${statusBadgeColor[m.reportStatus] ?? statusBadgeColor['Draft']}`}>
             {m.reportStatus}
           </span>
         </div>
@@ -343,6 +365,7 @@ export default function ReportPage() {
   const [errorMsg,       setErrorMsg]       = useState('');
   const [exporting,      setExporting]      = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
+  const autoGenerateAttemptedRef = useRef(false);
 
   useEffect(() => {
     const load = async () => {
@@ -403,6 +426,14 @@ export default function ReportPage() {
     }
   };
 
+  useEffect(() => {
+    if (autoGenerateAttemptedRef.current || reportStatus !== 'idle' || !analysis) {
+      return;
+    }
+    autoGenerateAttemptedRef.current = true;
+    void handleGenerate();
+  }, [analysis, projectData, reportStatus]);
+
   const handleRegenerate = async () => {
     setReport(null);
     setReportStatus('idle');
@@ -414,9 +445,10 @@ export default function ReportPage() {
     if (!reportRef.current || reportStatus !== 'ready') return;
     setExporting(true);
     try {
-      const slug    = projectData?.name ? projectData.name.replace(/\s+/g, '_') : 'Report';
-      const dateStr = new Date().toISOString().split('T')[0];
-      await exportMultiPagePDF(reportRef.current, `NeverSignBlind_${slug}_${dateStr}.pdf`);
+      const slug = projectData?.name
+        ? projectData.name.trim().replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+        : 'report';
+      await exportMultiPagePDF(reportRef.current, `${slug || 'report'}-report.pdf`);
     } finally {
       setExporting(false);
     }
@@ -528,10 +560,11 @@ export default function ReportPage() {
             </button>
           )}
           {/* PDF gated on ready */}
-          <button
-            onClick={handleExportPDF}
-            disabled={reportStatus !== 'ready' || exporting}
-            className="flex items-center gap-2 bg-white border border-slate-200 px-5 py-2.5 rounded shadow-sm hover:shadow-md transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+            <button
+              id="exportReportBtn"
+              onClick={handleExportPDF}
+              disabled={reportStatus !== 'ready' || exporting}
+              className="flex items-center gap-2 bg-white border border-slate-200 px-5 py-2.5 rounded shadow-sm hover:shadow-md transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {exporting
               ? <Loader2 className="text-primary animate-spin" size={18} />
@@ -544,10 +577,11 @@ export default function ReportPage() {
       </div>
 
       {/* Memo body */}
-      <div
-        ref={reportRef}
-        className="bg-white px-14 py-12 rounded-3xl shadow-xl border border-slate-100 print:shadow-none print:border-none print:rounded-none print:px-8 print:py-8 min-h-[500px]"
-      >
+        <div
+          id="reportCard"
+          ref={reportRef}
+          className="bg-white px-14 py-12 rounded-3xl shadow-xl border border-slate-100 print:shadow-none print:border-none print:rounded-none print:px-8 print:py-8 min-h-[500px]"
+        >
         {reportStatus === 'idle'       && renderIdle()}
         {reportStatus === 'generating' && renderGenerating()}
         {reportStatus === 'failed'     && renderFailed()}

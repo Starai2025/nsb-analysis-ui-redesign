@@ -129,7 +129,7 @@ export default function DecisionSummaryPage() {
       <div className="flex items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-3">
           {projectLabel && (
-            <span className="rounded-full bg-[#0f2044]/8 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#0f2044]">
+            <span id="summaryCaseTitle" className="rounded-full bg-[#0f2044]/8 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#0f2044]">
               {projectLabel}
             </span>
           )}
@@ -180,7 +180,7 @@ export default function DecisionSummaryPage() {
             <h1 className="font-headline text-5xl font-extrabold uppercase leading-none tracking-[0.02em] text-white">
               Material Scope Change
             </h1>
-            <p className="mt-5 max-w-4xl text-lg font-medium leading-8 text-white/82">
+            <p id="summaryText" className="mt-5 max-w-4xl text-lg font-medium leading-8 text-white/82">
               {analysis.executiveConclusion}
             </p>
             <div className="mt-6 flex flex-wrap gap-3">

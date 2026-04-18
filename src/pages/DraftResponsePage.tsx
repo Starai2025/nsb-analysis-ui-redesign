@@ -64,7 +64,7 @@ async function exportDraftPDF(element: HTMLElement, filename: string): Promise<v
 
 function StrategyTab({ s, projectData }: { s: DraftStrategy; projectData: ProjectData | null }) {
   return (
-    <div className="grid grid-cols-12 gap-8">
+    <div id="draftStrategyPanel" className="grid grid-cols-12 gap-8">
       <div className="col-span-8 space-y-6">
 
         {/* What Changed */}
@@ -209,6 +209,7 @@ export default function DraftResponsePage() {
   const [exporting,    setExporting]    = useState(false);
   const [copied,       setCopied]       = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
+  const autoGenerateAttemptedRef = useRef(false);
 
   useEffect(() => {
     const load = async () => {
@@ -259,6 +260,14 @@ export default function DraftResponsePage() {
       setDraftStatus('failed');
     }
   };
+
+  useEffect(() => {
+    if (autoGenerateAttemptedRef.current || draftStatus !== 'idle' || !analysis) {
+      return;
+    }
+    autoGenerateAttemptedRef.current = true;
+    void handleGenerate();
+  }, [analysis, projectData, draftStatus]);
 
   const handleRegenerate = async () => {
     setDraft(null);
@@ -355,6 +364,7 @@ export default function DraftResponsePage() {
             </div>
           </div>
           <textarea
+            id="draftTextarea"
             value={letterText}
             onChange={e => setLetterText(e.target.value)}
             className="flex-1 p-10 font-serif text-on-surface leading-relaxed resize-none outline-none bg-transparent text-sm"
@@ -478,12 +488,15 @@ export default function DraftResponsePage() {
 
       {/* Tabs */}
       <div className="flex border-b border-slate-200 gap-8">
-        {(['draft', 'strategy'] as const).map(tab => (
-          <button key={tab} onClick={() => setActiveTab(tab)}
-            className={cn(
-              "pb-4 text-sm font-bold uppercase tracking-widest transition-all relative flex items-center gap-2",
-              activeTab === tab ? "text-primary" : "text-on-surface-variant hover:text-on-surface"
-            )}>
+          {(['draft', 'strategy'] as const).map(tab => (
+            <button
+              key={tab}
+              id={tab === 'strategy' ? 'strategyTabBtn' : undefined}
+              onClick={() => setActiveTab(tab)}
+              className={cn(
+                "pb-4 text-sm font-bold uppercase tracking-widest transition-all relative flex items-center gap-2",
+                activeTab === tab ? "text-primary" : "text-on-surface-variant hover:text-on-surface"
+              )}>
             {tab === 'strategy' && <ShieldAlert size={16} />}
             {tab === 'draft' ? 'Draft Response' : 'Claim Strategy & Mitigation'}
             {activeTab === tab && <div className="absolute bottom-0 left-0 w-full h-1 bg-primary rounded-t-full" />}
@@ -499,7 +512,7 @@ export default function DraftResponsePage() {
         {draftStatus === 'ready' && draft && (
           activeTab === 'draft'
             ? renderDraftTab()
-            : <StrategyTab s={draft.strategy} projectData={projectData} />
+            : <div id="strategyPanel"><StrategyTab s={draft.strategy} projectData={projectData} /></div>
         )}
       </div>
     </div>
