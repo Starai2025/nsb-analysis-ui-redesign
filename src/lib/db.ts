@@ -23,7 +23,7 @@ import {
 } from './storageAdapter';
 
 const DB_NAME    = 'nsb-db';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 const THREADS = 'threads';
 const PREFS = 'preferences';
@@ -37,10 +37,13 @@ export const DEADLINES_STORE = 'deadlines';
 export const REPORTS_STORE = 'reports';
 export const DRAFTS_STORE = 'drafts';
 export const ARTIFACTS_STORE = 'artifacts';
+export const CLAUSES_STORE = 'clauses';
 
 export const CURRENT_THREAD_ID = 'current';
 export const ACTIVE_PROJECT_PREFERENCE_KEY = 'activeProjectId';
 const PROJECT_INDEX = 'projectId';
+const DOCUMENT_INDEX = 'documentId';
+const CLAUSE_FAMILY_INDEX = 'clauseFamily';
 
 export interface NSBThread {
   id:              string;
@@ -90,6 +93,16 @@ function ensureProjectIndex(store: IDBObjectStore): void {
   }
 }
 
+function ensureClauseIndexes(store: IDBObjectStore): void {
+  ensureProjectIndex(store);
+  if (!store.indexNames.contains(DOCUMENT_INDEX)) {
+    store.createIndex(DOCUMENT_INDEX, DOCUMENT_INDEX, { unique: false });
+  }
+  if (!store.indexNames.contains(CLAUSE_FAMILY_INDEX)) {
+    store.createIndex(CLAUSE_FAMILY_INDEX, CLAUSE_FAMILY_INDEX, { unique: false });
+  }
+}
+
 function deleteAllByProjectId(tx: IDBTransaction, storeName: string, projectId: string): void {
   const store = tx.objectStore(storeName);
   if (!store.indexNames.contains(PROJECT_INDEX)) return;
@@ -132,6 +145,7 @@ export function openDatabase(): Promise<IDBDatabase> {
       ensureProjectIndex(ensureStore(db, tx, REPORTS_STORE, { keyPath: 'id' }));
       ensureProjectIndex(ensureStore(db, tx, DRAFTS_STORE, { keyPath: 'id' }));
       ensureProjectIndex(ensureStore(db, tx, ARTIFACTS_STORE, { keyPath: 'id' }));
+      ensureClauseIndexes(ensureStore(db, tx, CLAUSES_STORE, { keyPath: 'id' }));
     };
 
     req.onsuccess = () => {
@@ -258,6 +272,7 @@ export async function clearCurrentThread(): Promise<void> {
       REPORTS_STORE,
       DRAFTS_STORE,
       ARTIFACTS_STORE,
+      CLAUSES_STORE,
       ISSUES_STORE,
       SUBMITTALS_STORE,
       COMMENTS_STORE,
@@ -279,6 +294,7 @@ export async function clearCurrentThread(): Promise<void> {
   deleteAllByProjectId(tx, REPORTS_STORE, projectId);
   deleteAllByProjectId(tx, DRAFTS_STORE, projectId);
   deleteAllByProjectId(tx, ARTIFACTS_STORE, projectId);
+  deleteAllByProjectId(tx, CLAUSES_STORE, projectId);
 
   await transactionToPromise(tx);
 }

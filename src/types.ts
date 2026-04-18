@@ -589,6 +589,7 @@ export interface ProjectWorkspaceSnapshot {
   latestAnalysis: ProjectAnalysisRecord | null;
   currentReport: ReportVersionRecord | null;
   currentDraft: DraftVersionRecord | null;
+  clauses: ClauseRecord[];
   issues: IssueRecord[];
   submittals: SubmittalRecord[];
   comments: CommentRecord[];

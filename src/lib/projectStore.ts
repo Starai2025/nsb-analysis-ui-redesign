@@ -1,5 +1,7 @@
 import type {
   ArtifactRecord,
+  ClauseFamily,
+  ClauseRecord,
   CommentRecord,
   DeadlineRecord,
   DraftVersionRecord,
@@ -16,6 +18,7 @@ import {
   ACTIVE_PROJECT_PREFERENCE_KEY,
   ANALYSES_STORE,
   ARTIFACTS_STORE,
+  CLAUSES_STORE,
   COMMENTS_STORE,
   CURRENT_THREAD_ID,
   DEADLINES_STORE,
@@ -34,6 +37,7 @@ import { LEGACY_COMPAT_PROJECT_ID } from './storageAdapter';
 type ProjectScopedStoreName =
   | typeof DOCUMENTS_STORE
   | typeof ANALYSES_STORE
+  | typeof CLAUSES_STORE
   | typeof ISSUES_STORE
   | typeof SUBMITTALS_STORE
   | typeof COMMENTS_STORE
@@ -84,6 +88,20 @@ async function getAllByProjectId<T>(storeName: ProjectScopedStoreName, projectId
   const tx = db.transaction(storeName, 'readonly');
   const records = await requestToPromise(
     tx.objectStore(storeName).index('projectId').getAll(projectId) as IDBRequest<T[]>,
+  );
+  await transactionToPromise(tx);
+  return records;
+}
+
+async function getAllByIndex<T>(
+  storeName: string,
+  indexName: string,
+  value: IDBValidKey,
+): Promise<T[]> {
+  const db = await openDatabase();
+  const tx = db.transaction(storeName, 'readonly');
+  const records = await requestToPromise(
+    tx.objectStore(storeName).index(indexName).getAll(value) as IDBRequest<T[]>,
   );
   await transactionToPromise(tx);
   return records;
@@ -153,6 +171,57 @@ export async function saveProjectAnalysisRecord(record: ProjectAnalysisRecord): 
 
 export async function listProjectAnalysisRecords(projectId: string): Promise<ProjectAnalysisRecord[]> {
   return getAllByProjectId<ProjectAnalysisRecord>(ANALYSES_STORE, projectId);
+}
+
+export async function saveClausesForProject(projectId: string, clauses: ClauseRecord[]): Promise<void> {
+  const db = await openDatabase();
+  const tx = db.transaction(CLAUSES_STORE, 'readwrite');
+  const store = tx.objectStore(CLAUSES_STORE);
+
+  for (const clause of clauses) {
+    store.put({
+      ...clause,
+      projectId,
+    });
+  }
+
+  await transactionToPromise(tx);
+}
+
+export async function getClausesForProject(projectId: string): Promise<ClauseRecord[]> {
+  return getAllByProjectId<ClauseRecord>(CLAUSES_STORE, projectId);
+}
+
+export async function getClausesForDocument(documentId: string): Promise<ClauseRecord[]> {
+  return getAllByIndex<ClauseRecord>(CLAUSES_STORE, 'documentId', documentId);
+}
+
+export async function getClausesByFamily(projectId: string, family: ClauseFamily): Promise<ClauseRecord[]> {
+  const clauses = await getAllByIndex<ClauseRecord>(CLAUSES_STORE, 'clauseFamily', family);
+  return clauses.filter((clause) => clause.projectId === projectId);
+}
+
+export async function replaceClausesForDocument(documentId: string, clauses: ClauseRecord[]): Promise<void> {
+  const db = await openDatabase();
+  const tx = db.transaction(CLAUSES_STORE, 'readwrite');
+  const store = tx.objectStore(CLAUSES_STORE);
+  const existing = store.index('documentId').openCursor(IDBKeyRange.only(documentId));
+
+  existing.onsuccess = () => {
+    const cursor = existing.result;
+    if (cursor) {
+      cursor.delete();
+      cursor.continue();
+      return;
+    }
+
+    for (const clause of clauses) {
+      store.put(clause);
+    }
+  };
+
+  existing.onerror = () => tx.abort();
+  await transactionToPromise(tx);
 }
 
 export async function saveIssueRecord(record: IssueRecord): Promise<void> {
@@ -236,9 +305,10 @@ export async function loadCurrentWorkspaceSnapshot(
   if (!project) return null;
 
   const projectId = project.id;
-  const [documents, analyses, issues, submittals, comments, deadlines, reports, drafts, artifacts] = await Promise.all([
+  const [documents, analyses, clauses, issues, submittals, comments, deadlines, reports, drafts, artifacts] = await Promise.all([
     listProjectDocumentRecords(projectId),
     listProjectAnalysisRecords(projectId),
+    getClausesForProject(projectId),
     listIssueRecords(projectId),
     listSubmittalRecords(projectId),
     listCommentRecords(projectId),
@@ -271,6 +341,7 @@ export async function loadCurrentWorkspaceSnapshot(
     latestAnalysis,
     currentReport,
     currentDraft,
+    clauses,
     issues,
     submittals,
     comments,
