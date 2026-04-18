@@ -95,6 +95,59 @@ export type IssueTaxonomy =
 
 export type IssueSeverity = 'low' | 'medium' | 'high' | 'critical';
 export type IssueConfidence = 'high' | 'medium' | 'low';
+export type ClauseFamily =
+  | 'hierarchy'
+  | 'submittal_review'
+  | 'anti_reliance'
+  | 'delay_events'
+  | 'compensation_events'
+  | 'ladot_changes'
+  | 'directive'
+  | 'pricing_support';
+export type ClauseSubtype =
+  | 'document_precedence'
+  | 'higher_standard_control'
+  | 'proposal_commitment_binding'
+  | 'atc_condition_binding'
+  | 'submittal_review_window'
+  | 'incomplete_submittal_return'
+  | 'review_clock_rule'
+  | 'review_nonreliance'
+  | 'approval_nonwaiver'
+  | 'delay_compensation_carveout'
+  | 'delay_event_notice'
+  | 'delay_event_claim_submission'
+  | 'delay_event_waiver'
+  | 'compensation_event_notice'
+  | 'compensation_event_claim_submission'
+  | 'compensation_event_waiver'
+  | 'estimate_then_supplement'
+  | 'request_for_change_proposal'
+  | 'change_order_required'
+  | 'change_work_conditions_precedent'
+  | 'directive_letter'
+  | 'proceed_while_disputed'
+  | 'post_dispute_change_order'
+  | 'subcontract_pricing_documents'
+  | 'lead_designer_pricing_documents'
+  | 'open_book_pricing'
+  | 'original_pricing_verification';
+export type ClauseLinkedIssueType = IssueTaxonomy;
+export type ClauseLinkedDeadlineType =
+  | 'submittal_review_followup'
+  | 'delay_event_notice_review'
+  | 'delay_claim_due'
+  | 'compensation_notice_review'
+  | 'compensation_claim_due'
+  | 'directive_followup'
+  | 'dispute_escalation_review'
+  | 'pricing_support_request_due';
+export type ClauseLinkedOutputType =
+  | 'summary_support'
+  | 'sources_library'
+  | 'report_body'
+  | 'report_appendix'
+  | 'draft_context';
 export type DeadlineType =
   | 'submittal-response-reminder'
   | 'delay-notice-review'
@@ -169,6 +222,63 @@ export interface WorkspaceError {
   source: 'analysis' | 'report' | 'draft' | 'sources' | 'storage';
   message: string;
   at: string;
+}
+
+export interface ClausePerspectiveNotes {
+  designer: string;
+  builder: string;
+  developer: string;
+  reviewer: string;
+}
+
+export interface ClauseLinkage {
+  linkedIssueTypes: ClauseLinkedIssueType[];
+  linkedDeadlineTypes: ClauseLinkedDeadlineType[];
+  linkedOutputTypes: ClauseLinkedOutputType[];
+}
+
+export interface ClauseRecord extends ClauseLinkage {
+  id: string;
+  projectId: string;
+  documentId: string;
+  documentType: DocumentType;
+  sectionRef: string;
+  pageRef: string;
+  title: string;
+  clauseFamily: ClauseFamily;
+  clauseSubtype: ClauseSubtype;
+  excerpt: string;
+  plainEnglishMeaning: string;
+  whyItMatters: string;
+  triggerConditions: string[];
+  perspectiveNotes: ClausePerspectiveNotes;
+  confidence: 'High' | 'Medium' | 'Low';
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ClauseSupportView {
+  id: string;
+  title: string;
+  sourceRef: string;
+  clauseFamily: ClauseFamily;
+  clauseSubtype: ClauseSubtype;
+  whyItMatters: string;
+  confidence: ClauseRecord['confidence'];
+  linkedIssueTypes: ClauseLinkedIssueType[];
+  linkedDeadlineTypes: ClauseLinkedDeadlineType[];
+  linkedOutputTypes: ClauseLinkedOutputType[];
+}
+
+export interface ClauseExtractionResult {
+  projectId: string;
+  documentId: string;
+  documentType: DocumentType;
+  clauseIds: string[];
+  seededFrom: 'calcasieu-curated';
+  generatedAt: string;
+  clauses: ClauseRecord[];
 }
 
 export interface ProjectRecord {
