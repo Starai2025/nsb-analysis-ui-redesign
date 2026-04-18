@@ -219,6 +219,8 @@ export interface ProjectAnalysisRecord {
   updatedAt: string;
   analysis: AnalysisResult;
   citations: Citation[];
+  contract?: ExtractedDocument;
+  correspondence?: ExtractedDocument;
   knowledgeMeta?: Record<string, unknown>;
 }
 
@@ -475,6 +477,8 @@ export interface ProjectWorkspaceSnapshot {
   project: ProjectRecord | null;
   documents: ProjectDocumentRecord[];
   latestAnalysis: ProjectAnalysisRecord | null;
+  currentReport: ReportVersionRecord | null;
+  currentDraft: DraftVersionRecord | null;
   issues: IssueRecord[];
   submittals: SubmittalRecord[];
   comments: CommentRecord[];

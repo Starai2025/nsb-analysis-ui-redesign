@@ -121,6 +121,8 @@ export function createAnalysisRecordFromThread(thread: NSBThread): ProjectAnalys
     updatedAt: thread.updatedAt,
     analysis: thread.analysis,
     citations: normalizeCitations(thread.citations as Citation[] | undefined),
+    contract: thread.contract,
+    correspondence: thread.correspondence,
   };
 }
 

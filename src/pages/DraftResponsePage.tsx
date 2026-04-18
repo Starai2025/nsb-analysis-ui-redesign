@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { loadCurrentThread, saveCurrentThread } from '../lib/db';
+import { loadCurrentWorkspaceThreadView } from '../lib/projectStore';
 import NoAnalysis from '../components/NoAnalysis';
 import { Draft, DraftStatus, DraftStrategy, AnalysisResult, ProjectData } from '../types';
 import { cn } from '../lib/utils';
@@ -210,7 +211,8 @@ export default function DraftResponsePage() {
   const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    loadCurrentThread().then(thread => {
+    const load = async () => {
+      const thread = await loadCurrentWorkspaceThreadView() ?? await loadCurrentThread();
       if (thread?.analysis)    setAnalysis(thread.analysis);
       if (thread?.projectData) setProjectData(thread.projectData);
       if (thread?.draft && thread.draft.letter && thread.draft.strategy) {
@@ -218,14 +220,16 @@ export default function DraftResponsePage() {
         setLetterText(thread.draft.letter);
         setDraftStatus('ready');
       }
-    });
+    };
+
+    void load();
   }, []);
 
   const handleGenerate = async () => {
     setDraftStatus('generating');
     setErrorMsg('');
     try {
-      const thread = await loadCurrentThread();
+      const thread = await loadCurrentWorkspaceThreadView() ?? await loadCurrentThread();
       const res    = await fetch('/api/generate-draft', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -260,14 +264,14 @@ export default function DraftResponsePage() {
     setDraft(null);
     setLetterText('');
     setDraftStatus('idle');
-    const thread = await loadCurrentThread();
+    const thread = await loadCurrentWorkspaceThreadView() ?? await loadCurrentThread();
     if (thread) await saveCurrentThread({ ...thread, draft: undefined } as any);
   };
 
   const handleSave = async () => {
     if (!draft) return;
     const updated: Draft = { ...draft, letter: letterText, updatedAt: new Date().toISOString() };
-    const thread = await loadCurrentThread();
+    const thread = await loadCurrentWorkspaceThreadView() ?? await loadCurrentThread();
     if (thread) await saveCurrentThread({ ...thread, draft: updated } as any);
     setDraft(updated);
   };

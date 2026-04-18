@@ -7,6 +7,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { loadCurrentWorkspaceThreadView } from '../lib/projectStore';
 import { loadCurrentThread, saveCurrentThread, clearCurrentThread } from '../lib/db';
 import NoAnalysis from '../components/NoAnalysis';
 import {
@@ -346,7 +347,7 @@ export default function ReportPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const thread = await loadCurrentThread();
+        const thread = await loadCurrentWorkspaceThreadView() ?? await loadCurrentThread();
         if (!thread) { setReportStatus('idle'); return; }
         if (thread.analysis)    setAnalysis(thread.analysis);
         if (thread.projectData) setProjectData(thread.projectData);
@@ -374,7 +375,7 @@ export default function ReportPage() {
     setReportStatus('generating');
     setErrorMsg('');
     try {
-      const thread = await loadCurrentThread();
+      const thread = await loadCurrentWorkspaceThreadView() ?? await loadCurrentThread();
       const res  = await fetch('/api/generate-report', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -405,7 +406,7 @@ export default function ReportPage() {
   const handleRegenerate = async () => {
     setReport(null);
     setReportStatus('idle');
-    const thread = await loadCurrentThread();
+    const thread = await loadCurrentWorkspaceThreadView() ?? await loadCurrentThread();
     if (thread) await saveCurrentThread({ ...thread, report: undefined });
   };
 

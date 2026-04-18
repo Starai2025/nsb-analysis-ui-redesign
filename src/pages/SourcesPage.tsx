@@ -6,6 +6,7 @@ import {
   Scale, Loader2, FileSearch
 } from 'lucide-react';
 import { loadCurrentThread } from '../lib/db';
+import { loadCurrentWorkspaceThreadView } from '../lib/projectStore';
 import NoAnalysis from '../components/NoAnalysis';
 import { Citation, ExtractedPage, ClauseEntry } from '../types';
 
@@ -61,7 +62,7 @@ export default function SourcesPage() {
 
     const load = async () => {
       try {
-        const thread = await loadCurrentThread();
+        const thread = await loadCurrentWorkspaceThreadView({ includeArtifactBuffers: true }) ?? await loadCurrentThread();
 
         if (!thread?.analysis) { setNoThread(true); return; }
         if (!thread.contract)  { setContractMissing(true); return; }

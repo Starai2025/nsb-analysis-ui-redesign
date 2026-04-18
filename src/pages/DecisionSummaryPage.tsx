@@ -5,6 +5,7 @@ import {
   Loader2, RotateCcw
 } from 'lucide-react';
 import { loadCurrentThread, saveCurrentThread, clearCurrentThread } from '../lib/db';
+import { loadCurrentWorkspaceThreadView } from '../lib/projectStore';
 import NoAnalysis from '../components/NoAnalysis';
 
 function safeDate(value: string): string {
@@ -29,8 +30,7 @@ export default function DecisionSummaryPage() {
 
     const load = async () => {
       try {
-        // Primary: IndexedDB
-        const thread = await loadCurrentThread();
+        const thread = await loadCurrentWorkspaceThreadView() ?? await loadCurrentThread();
         if (thread?.analysis) {
           setAnalysis(thread.analysis);
           setProjectData(thread.projectData ?? null);

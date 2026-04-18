@@ -11,11 +11,13 @@ import type {
   ReportVersionRecord,
   SubmittalRecord,
 } from '../types';
+import type { NSBThread } from './db';
 import {
   ACTIVE_PROJECT_PREFERENCE_KEY,
   ANALYSES_STORE,
   ARTIFACTS_STORE,
   COMMENTS_STORE,
+  CURRENT_THREAD_ID,
   DEADLINES_STORE,
   DOCUMENTS_STORE,
   DRAFTS_STORE,
@@ -90,6 +92,14 @@ async function getAllByProjectId<T>(storeName: ProjectScopedStoreName, projectId
 function stripArtifactBuffers(record: ArtifactRecord): ArtifactRecord {
   const { arrayBuffer, payload, ...rest } = record;
   return rest;
+}
+
+function byMostRecent<T extends { updatedAt: string; createdAt: string }>(records: T[]): T[] {
+  return [...records].sort((left, right) => {
+    const rightTime = Date.parse(right.updatedAt || right.createdAt || '') || 0;
+    const leftTime = Date.parse(left.updatedAt || left.createdAt || '') || 0;
+    return rightTime - leftTime;
+  });
 }
 
 export async function saveProjectRecord(record: ProjectRecord): Promise<void> {
@@ -238,12 +248,29 @@ export async function loadCurrentWorkspaceSnapshot(
     listArtifactRecords(projectId, { includeBuffers: options.includeArtifactBuffers }),
   ]);
 
-  const latestAnalysis = analyses.find((record) => record.id === project.currentAnalysisId) ?? analyses[0] ?? null;
+  const sortedAnalyses = byMostRecent(analyses);
+  const sortedReports = byMostRecent(reports);
+  const sortedDrafts = byMostRecent(drafts);
+
+  const latestAnalysis =
+    analyses.find((record) => record.id === project.currentAnalysisId)
+    ?? sortedAnalyses[0]
+    ?? null;
+  const currentReport =
+    reports.find((record) => record.id === project.currentReportId)
+    ?? sortedReports[0]
+    ?? null;
+  const currentDraft =
+    drafts.find((record) => record.id === project.currentDraftId)
+    ?? sortedDrafts[0]
+    ?? null;
 
   return {
     project,
     documents,
     latestAnalysis,
+    currentReport,
+    currentDraft,
     issues,
     submittals,
     comments,
@@ -251,5 +278,61 @@ export async function loadCurrentWorkspaceSnapshot(
     reports,
     drafts,
     artifacts,
+  };
+}
+
+export async function loadCurrentWorkspaceThreadView(
+  options: { includeArtifactBuffers?: boolean } = {},
+): Promise<NSBThread | null> {
+  const snapshot = await loadCurrentWorkspaceSnapshot(options);
+  if (!snapshot?.project || !snapshot.latestAnalysis) {
+    return null;
+  }
+
+  const contractDocument =
+    snapshot.documents.find((record) => record.id === snapshot.latestAnalysis?.contractDocumentId)
+    ?? snapshot.documents.find((record) => record.category === 'governing-agreement');
+  const correspondenceDocument =
+    snapshot.documents.find((record) => record.id === snapshot.latestAnalysis?.correspondenceDocumentId)
+    ?? snapshot.documents.find((record) => record.category === 'correspondence-review-comments');
+
+  const contractArtifactId = contractDocument?.blobArtifactId;
+  const contractArtifact = contractArtifactId
+    ? snapshot.artifacts.find((record) => record.id === contractArtifactId)
+    : null;
+
+  return {
+    id: snapshot.project.legacyThreadId || CURRENT_THREAD_ID,
+    createdAt: snapshot.project.createdAt,
+    updatedAt: snapshot.latestAnalysis.updatedAt || snapshot.project.updatedAt,
+    projectData: snapshot.project.projectData,
+    analysis: snapshot.latestAnalysis.analysis,
+    contract: snapshot.latestAnalysis.contract ?? (contractDocument ? {
+      id: contractDocument.extractionId ?? contractDocument.id,
+      name: contractDocument.name,
+      type: 'contract',
+      metadata: {
+        fileSize: contractDocument.fileSize,
+        mimeType: contractDocument.mimeType,
+        uploadedAt: contractDocument.uploadedAt,
+        pageCount: contractDocument.pageCount,
+      },
+    } : undefined),
+    correspondence: snapshot.latestAnalysis.correspondence ?? (correspondenceDocument ? {
+      id: correspondenceDocument.extractionId ?? correspondenceDocument.id,
+      name: correspondenceDocument.name,
+      type: 'correspondence',
+      metadata: {
+        fileSize: correspondenceDocument.fileSize,
+        mimeType: correspondenceDocument.mimeType,
+        uploadedAt: correspondenceDocument.uploadedAt,
+        pageCount: correspondenceDocument.pageCount,
+      },
+    } : undefined),
+    citations: snapshot.latestAnalysis.citations,
+    report: snapshot.currentReport?.report,
+    draft: snapshot.currentDraft?.draft,
+    chatHistory: undefined,
+    contractBlob: contractArtifact?.arrayBuffer,
   };
 }
