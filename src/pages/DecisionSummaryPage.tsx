@@ -1,12 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   History, CheckCircle2,
   Loader2, RotateCcw
 } from 'lucide-react';
 import { loadCurrentThread, saveCurrentThread, clearCurrentThread } from '../lib/db';
-import { loadCurrentWorkspaceThreadView } from '../lib/projectStore';
+import { loadCurrentWorkspaceSnapshot, loadCurrentWorkspaceThreadView } from '../lib/projectStore';
 import NoAnalysis from '../components/NoAnalysis';
+import type { ClauseRecord } from '../types';
+import { deriveSummaryIssues, getClauseShortSourceRef, rankClausesForIssue } from '../lib/clauseSurface';
 
 function safeDate(value: string): string {
   if (!value || value === 'Not specified') return 'Not specified';
@@ -24,12 +26,15 @@ export default function DecisionSummaryPage() {
   const [extraDays,       setExtraDays]       = useState('');
   const [secondaryResp,   setSecondaryResp]   = useState('');
   const [saving,          setSaving]          = useState(false);
+  const [clauses,         setClauses]         = useState<ClauseRecord[]>([]);
+  const [activeIssueId,   setActiveIssueId]   = useState<string | null>(null);
 
   useEffect(() => {
     const slowTimer = setTimeout(() => setShowSlowLoading(true), 5000);
 
     const load = async () => {
       try {
+        const snapshot = await loadCurrentWorkspaceSnapshot();
         const thread = await loadCurrentWorkspaceThreadView() ?? await loadCurrentThread();
         if (thread?.analysis) {
           setAnalysis(thread.analysis);
@@ -37,6 +42,7 @@ export default function DecisionSummaryPage() {
           setClaimableAmount(thread.analysis.claimableAmount ?? '');
           setExtraDays(thread.analysis.extraDays ?? '');
           setSecondaryResp(thread.analysis.secondaryResponsibility ?? '');
+          setClauses(snapshot?.clauses ?? []);
           return;
         }
         // Fallback: server store (handles direct navigation before IndexedDB is populated)
@@ -65,6 +71,20 @@ export default function DecisionSummaryPage() {
     load();
     return () => clearTimeout(slowTimer);
   }, []);
+
+  useEffect(() => {
+    const issues = deriveSummaryIssues(analysis);
+    if (issues.length === 0) {
+      setActiveIssueId(null);
+      return;
+    }
+
+    setActiveIssueId((current) => (
+      current && issues.some((issue) => issue.id === current)
+        ? current
+        : issues[0].id
+    ));
+  }, [analysis]);
 
   const handleSaveAndGenerate = async () => {
     setSaving(true);
@@ -119,6 +139,10 @@ export default function DecisionSummaryPage() {
   if (!analysis) {
     return <NoAnalysis currentStep="summary" />;
   }
+
+  const summaryIssues = deriveSummaryIssues(analysis);
+  const activeIssue = summaryIssues.find((issue) => issue.id === activeIssueId) ?? summaryIssues[0] ?? null;
+  const topSupportingClauses = rankClausesForIssue(clauses, activeIssue, 3);
 
   const projectLabel = projectData?.name
     ? `${projectData.name}${projectData.changeRequestId ? ` — ${projectData.changeRequestId}` : ''}`
@@ -274,6 +298,34 @@ export default function DecisionSummaryPage() {
         </div>
       </div>
 
+      {topSupportingClauses.length > 0 && (
+        <section className="rounded-[24px] bg-white p-8 shadow-lg shadow-slate-900/5">
+          <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <div className="text-xs font-bold uppercase tracking-[0.18em] text-on-surface-variant">Top Supporting Clauses</div>
+              <p className="mt-2 text-sm text-on-surface-variant">
+                Focused clause support for {activeIssue ? `"${activeIssue.title}"` : 'the current issue'}.
+              </p>
+            </div>
+            <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">
+              {topSupportingClauses.length} highlighted
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+            {topSupportingClauses.map((clause) => (
+              <article key={clause.id} className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5">
+                <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-on-surface-variant">
+                  {getClauseShortSourceRef(clause)}
+                </div>
+                <div className="mt-3 text-sm font-bold text-on-surface">{clause.title}</div>
+                <p className="mt-3 text-xs leading-6 text-on-surface-variant">{clause.whyItMatters}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
       <section className="rounded-[24px] border-l-4 border-[#e67e22] bg-[linear-gradient(180deg,#ffffff_0%,#fcfaf7_100%)] p-8 shadow-lg shadow-slate-900/5">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div className="text-xs font-bold uppercase tracking-[0.18em] text-on-surface-variant">Strategic Recommendation</div>
@@ -296,7 +348,14 @@ export default function DecisionSummaryPage() {
       </section>
 
       <section className="rounded-[24px] bg-white p-8 shadow-lg shadow-slate-900/5">
-        <div className="mb-5 text-xs font-bold uppercase tracking-[0.18em] text-on-surface-variant">Key Risks</div>
+        <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
+          <div className="text-xs font-bold uppercase tracking-[0.18em] text-on-surface-variant">Key Risks</div>
+          {activeIssue && summaryIssues.length > 1 && (
+            <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">
+              Active issue: {activeIssue.title}
+            </div>
+          )}
+        </div>
         <div className="grid grid-cols-2 gap-4">
           {analysis.keyRisks?.map((risk: any, i: number) => {
             const tone =
@@ -322,8 +381,16 @@ export default function DecisionSummaryPage() {
               i === 4 ? 'Cash flow' :
               'Liability';
 
+            const issueId = summaryIssues[i]?.id ?? `issue-${i}`;
+            const isActive = issueId === activeIssueId;
+
             return (
-              <div key={i} className={`rounded-2xl border p-5 shadow-sm ${tone}`}>
+              <button
+                key={i}
+                type="button"
+                onClick={() => setActiveIssueId(issueId)}
+                className={`rounded-2xl border p-5 text-left shadow-sm transition-all ${tone} ${isActive ? 'ring-2 ring-[#e67e22]' : 'hover:-translate-y-0.5 hover:shadow-md'}`}
+              >
                 <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-on-surface-variant">
                   {i < 3 ? 'High' : i < 5 ? 'Med' : 'Low'}
                 </div>
@@ -333,7 +400,7 @@ export default function DecisionSummaryPage() {
                   <span className="rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-on-surface-variant">{tagA}</span>
                   <span className="rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-on-surface-variant">{tagB}</span>
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>

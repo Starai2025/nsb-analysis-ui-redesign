@@ -230,11 +230,20 @@ async function extractDOCXArchiveText(buffer: Buffer): Promise<string> {
   }
 }
 
+function isPdfLike(mimetype: string, originalname?: string): boolean {
+  return /pdf/i.test(mimetype) || originalname?.toLowerCase().endsWith(".pdf") === true;
+}
+
 async function ingestDocument(buffer: Buffer, mimetype: string, originalname: string, type: DocumentType, fileSize: number): Promise<ExtractedDocument> {
   const id = `doc-${Date.now()}-${type}`;
-  const { pages, chunks, pageCount } = mimetype === "application/pdf"
+  const pdfLike = isPdfLike(mimetype, originalname);
+  const { pages, chunks, pageCount } = pdfLike
     ? await ingestPDF(buffer, id)
     : { ...(await ingestDOCX(buffer, id)), pageCount: undefined };
+  const resolvedPageCount =
+    pdfLike
+      ? pageCount ?? estimatePdfPageCountFromBuffer(buffer)
+      : undefined;
   console.log(`  Ingested "${originalname}": ${pages.length} pages, ${chunks.length} chunks`);
   return {
     id,
@@ -246,7 +255,7 @@ async function ingestDocument(buffer: Buffer, mimetype: string, originalname: st
       fileSize,
       mimeType: mimetype,
       uploadedAt: new Date().toISOString(),
-      pageCount,
+      pageCount: resolvedPageCount,
     },
   };
 }
@@ -305,9 +314,20 @@ function getDocumentText(doc: ExtractedDocument): string {
   return "";
 }
 
-function shouldUsePdfBinary(mimetype: string, doc: ExtractedDocument): boolean {
-  if (mimetype !== "application/pdf") return false;
-  const pageCount = doc.metadata.pageCount ?? doc.pages?.length ?? 0;
+function estimatePdfPageCountFromBuffer(buffer: Buffer): number | undefined {
+  try {
+    const content = buffer.toString("latin1");
+    const matches = content.match(/\/Type\s*\/Page\b/g);
+    if (!matches?.length) return undefined;
+    return matches.length;
+  } catch {
+    return undefined;
+  }
+}
+
+function shouldUsePdfBinary(mimetype: string, buffer: Buffer, doc: ExtractedDocument): boolean {
+  if (!isPdfLike(mimetype, doc.name)) return false;
+  const pageCount = doc.metadata.pageCount ?? doc.pages?.length ?? estimatePdfPageCountFromBuffer(buffer) ?? 0;
   return pageCount > 0 && pageCount <= MAX_ANTHROPIC_PDF_PAGES;
 }
 
@@ -412,7 +432,16 @@ function buildDocumentContent(
   doc: ExtractedDocument,
   options: { usePdfBinary: boolean },
 ): Anthropic.MessageParam["content"] {
-  if (options.usePdfBinary) {
+  const pdfPageCount =
+    isPdfLike(mimetype, doc.name)
+      ? doc.metadata.pageCount ?? doc.pages?.length ?? estimatePdfPageCountFromBuffer(buffer) ?? 0
+      : 0;
+  const canFallbackToPdfBinary =
+    isPdfLike(mimetype, doc.name)
+      && pdfPageCount > 0
+      && pdfPageCount <= MAX_ANTHROPIC_PDF_PAGES;
+
+  if (options.usePdfBinary || canFallbackToPdfBinary && !getDocumentText(doc).trim()) {
     return [{
       type: "document",
       source: { type: "base64", media_type: "application/pdf", data: buffer.toString("base64") },
@@ -601,8 +630,8 @@ async function runAnalysis(
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set on the server.");
   const client = new Anthropic({ apiKey });
 
-  let contractUsePdfBinary = shouldUsePdfBinary(contractMime, contractDoc);
-  let corrUsePdfBinary     = shouldUsePdfBinary(corrMime,     corrDoc);
+  let contractUsePdfBinary = shouldUsePdfBinary(contractMime, contractBuffer, contractDoc);
+  let corrUsePdfBinary     = shouldUsePdfBinary(corrMime,     corrBuffer,     corrDoc);
 
   // Token budget check — oversized uploads fall back to extracted text and truncation.
   const contractTokens = estimateTokens(contractBuffer, contractMime, contractDoc, contractUsePdfBinary);
@@ -926,7 +955,13 @@ const REPORT_TOOL: Anthropic.Tool = {
   },
 };
 
-async function generateReport(knowledge: KnowledgeBundle, analysis: any, projectData: any, citations: any[]): Promise<any> {
+async function generateReport(
+  knowledge: KnowledgeBundle,
+  analysis: any,
+  projectData: any,
+  citations: any[],
+  clauses: any[] = [],
+): Promise<any> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set on the server.");
   const client = new Anthropic({ apiKey });
@@ -938,6 +973,9 @@ async function generateReport(knowledge: KnowledgeBundle, analysis: any, project
   const citationContext = citations?.length
     ? `\n\nExtracted citations (use for Key Contract Clauses and Source Snapshot):\n${JSON.stringify(citations.slice(0, 6), null, 2)}`
     : "\n\nNo structured citations were extracted. The Source Snapshot should be conservative and clearly limited.";
+  const clauseContext = clauses?.length
+    ? `\n\nRanked clause support for the report body (prefer these in the Key Contract Clauses section if they fit the analysis):\n${JSON.stringify(clauses.slice(0, 5), null, 2)}`
+    : "";
 
   const userPrompt = `Write a Change Order Analysis Report for the following project.
 
@@ -959,7 +997,7 @@ ${JSON.stringify({
     noticeDeadline:          analysis.noticeDeadline,
     strategicRecommendation: analysis.strategicRecommendation,
     keyRisks:                analysis.keyRisks,
-  }, null, 2)}${citationContext}
+  }, null, 2)}${citationContext}${clauseContext}
 
 Call submit_report with all 12 sections completed.`;
 
@@ -1021,6 +1059,7 @@ async function generateDraft(
   projectData: any,
   citations:   any[],
   report?:     any,
+  clauses:     any[] = [],
 ): Promise<any> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set on the server.");
@@ -1044,6 +1083,9 @@ async function generateDraft(
   const citationContext = citations?.length
     ? `\n\nKey contract citations:\n${JSON.stringify(citations.slice(0, 4), null, 2)}`
     : "";
+  const clauseContext = clauses?.length
+    ? `\n\nRelevant clause support for posture and drafting (use only if it improves reservation-of-rights, request-for-direction, change proposal, or directive/proceed-while-disputed language):\n${JSON.stringify(clauses, null, 2)}`
+    : "";
 
   const userPrompt = `Generate a draft response letter and internal claim strategy for the following change order situation.
 
@@ -1063,7 +1105,7 @@ ${JSON.stringify({
     noticeDeadline:          analysis.noticeDeadline,
     strategicRecommendation: analysis.strategicRecommendation,
     keyRisks:                analysis.keyRisks,
-  }, null, 2)}${reportContext}${citationContext}
+  }, null, 2)}${reportContext}${citationContext}${clauseContext}
 
 Rules:
 - Letter: professional tone, no aggressive legal theatrics, usable by a commercial manager
@@ -1072,6 +1114,8 @@ Rules:
 - Reference the project name and contract number where appropriate
 - Strategy: practical and actionable, not theoretical
 - All outputs must be conservative and source-grounded
+- Use clause support selectively; do not dump every clause into the letter
+- If clause support is relevant, use it to sharpen reservation of rights, request for direction, change proposal posture, or directive language
 
 Call submit_draft with the completed letter and strategy.`;
 
@@ -1238,13 +1282,14 @@ async function startServer() {
       const analysis    = req.body?.analysis    ?? store.analysis;
       const projectData = req.body?.projectData ?? store.projectData ?? {};
       const citations   = req.body?.citations   ?? store.citations   ?? [];
+      const clauses     = req.body?.clauses     ?? [];
 
       if (!analysis) {
         res.status(400).json({ error: "No analysis found. Run an analysis first." });
         return;
       }
       console.log("Generating report...");
-      const raw = await generateReport(knowledge, analysis, projectData, citations);
+      const raw = await generateReport(knowledge, analysis, projectData, citations, clauses);
       const now = new Date().toISOString();
       const report = {
         id:        `report-${Date.now()}`,
@@ -1272,13 +1317,14 @@ async function startServer() {
       const projectData = req.body?.projectData ?? store.projectData ?? {};
       const citations   = req.body?.citations   ?? store.citations   ?? [];
       const report      = req.body?.report      ?? null;
+      const clauses     = req.body?.clauses     ?? [];
 
       if (!analysis) {
         res.status(400).json({ error: "No analysis found. Run an analysis first." });
         return;
       }
       console.log("Generating draft...");
-      const raw = await generateDraft(knowledge, analysis, projectData, citations, report);
+      const raw = await generateDraft(knowledge, analysis, projectData, citations, report, clauses);
       const now = new Date().toISOString();
       const draft = {
         id:        `draft-${Date.now()}`,

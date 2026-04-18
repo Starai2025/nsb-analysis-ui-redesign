@@ -8,10 +8,11 @@ import { useNavigate } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { loadCurrentThread, saveCurrentThread } from '../lib/db';
-import { loadCurrentWorkspaceThreadView } from '../lib/projectStore';
+import { loadCurrentWorkspaceSnapshot, loadCurrentWorkspaceThreadView } from '../lib/projectStore';
 import NoAnalysis from '../components/NoAnalysis';
-import { Draft, DraftStatus, DraftStrategy, AnalysisResult, ProjectData } from '../types';
+import { AnalysisResult, ClauseRecord, Draft, DraftStatus, DraftStrategy, ProjectData } from '../types';
 import { cn } from '../lib/utils';
+import { buildRelevantDraftClauses, getClauseShortSourceRef } from '../lib/clauseSurface';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -208,14 +209,17 @@ export default function DraftResponsePage() {
   const [errorMsg,     setErrorMsg]     = useState('');
   const [exporting,    setExporting]    = useState(false);
   const [copied,       setCopied]       = useState(false);
+  const [projectClauses, setProjectClauses] = useState<ClauseRecord[]>([]);
   const contentRef = useRef<HTMLDivElement>(null);
   const autoGenerateAttemptedRef = useRef(false);
 
   useEffect(() => {
     const load = async () => {
+      const snapshot = await loadCurrentWorkspaceSnapshot();
       const thread = await loadCurrentWorkspaceThreadView() ?? await loadCurrentThread();
       if (thread?.analysis)    setAnalysis(thread.analysis);
       if (thread?.projectData) setProjectData(thread.projectData);
+      setProjectClauses(snapshot?.clauses ?? []);
       if (thread?.draft && thread.draft.letter && thread.draft.strategy) {
         setDraft(thread.draft);
         setLetterText(thread.draft.letter);
@@ -231,6 +235,7 @@ export default function DraftResponsePage() {
     setErrorMsg('');
     try {
       const thread = await loadCurrentWorkspaceThreadView() ?? await loadCurrentThread();
+      const relevantClauses = buildRelevantDraftClauses(projectClauses, (thread?.analysis ?? analysis) ?? null, 4);
       const res    = await fetch('/api/generate-draft', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -239,6 +244,14 @@ export default function DraftResponsePage() {
           projectData: thread?.projectData ?? projectData,
           citations:   thread?.citations   ?? [],
           report:      thread?.report      ?? null,
+          clauses:     relevantClauses.map((clause) => ({
+            title: clause.title,
+            sourceRef: getClauseShortSourceRef(clause),
+            excerpt: clause.excerpt,
+            whyItMatters: clause.whyItMatters,
+            linkedIssueTypes: clause.linkedIssueTypes,
+            linkedDeadlineTypes: clause.linkedDeadlineTypes,
+          })),
         }),
       });
       const data = await res.json();
@@ -267,7 +280,7 @@ export default function DraftResponsePage() {
     }
     autoGenerateAttemptedRef.current = true;
     void handleGenerate();
-  }, [analysis, projectData, draftStatus]);
+  }, [analysis, draftStatus, projectClauses, projectData]);
 
   const handleRegenerate = async () => {
     setDraft(null);
@@ -412,6 +425,23 @@ export default function DraftResponsePage() {
               <p className="text-xs text-amber-800 leading-relaxed font-medium">
                 Review all content before sending. This draft is a starting point — verify all clause references and dates against your actual contract.
               </p>
+            </div>
+          </section>
+        )}
+
+        {buildRelevantDraftClauses(projectClauses, analysis, 3).length > 0 && (
+          <section className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+            <h3 className="font-headline font-bold text-on-surface mb-4">Clause Support in Use</h3>
+            <div className="space-y-3">
+              {buildRelevantDraftClauses(projectClauses, analysis, 3).map((clause) => (
+                <div key={clause.id} className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+                  <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-primary">
+                    {getClauseShortSourceRef(clause)}
+                  </div>
+                  <div className="mt-1 text-xs font-bold text-on-surface">{clause.title}</div>
+                  <p className="mt-2 text-xs leading-6 text-on-surface-variant">{clause.whyItMatters}</p>
+                </div>
+              ))}
             </div>
           </section>
         )}

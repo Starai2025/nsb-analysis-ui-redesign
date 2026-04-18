@@ -29,6 +29,7 @@ import type {
 import { CURRENT_THREAD_ID, saveCurrentThread } from '../lib/db';
 import {
   loadCurrentWorkspaceSnapshot,
+  replaceClausesForDocument,
   removeArtifactRecord,
   removeProjectDocumentRecord,
   saveArtifactRecord,
@@ -40,6 +41,7 @@ import {
   LEGACY_CONTRACT_BLOB_ARTIFACT_ID,
   LEGACY_DOCUMENT_RECORD_ID,
 } from '../lib/storageAdapter';
+import { buildLadotDemoClauses } from '../lib/ladotDemoClauses';
 
 type OptionalDocumentCategory = Exclude<
   DocumentCategory,
@@ -802,6 +804,13 @@ export default function IntakePage() {
         report: undefined,
         chatHistory: undefined,
       });
+
+      const contractDocumentId = LEGACY_DOCUMENT_RECORD_ID(projectId, 'contract');
+      const projectClauses = projectPreset === 'ladot-calcasieu'
+        ? buildLadotDemoClauses(projectId, contractDocumentId)
+        : [];
+
+      await replaceClausesForDocument(contractDocumentId, projectClauses);
 
       stopTimer();
       navigate('/summary');

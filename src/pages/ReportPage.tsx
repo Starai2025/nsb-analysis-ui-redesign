@@ -7,13 +7,14 @@ import {
 import { useNavigate } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import { loadCurrentThread, saveCurrentThread, clearCurrentThread } from '../lib/db';
-import { loadCurrentWorkspaceThreadView } from '../lib/projectStore';
+import { loadCurrentWorkspaceSnapshot, loadCurrentWorkspaceThreadView } from '../lib/projectStore';
 import NoAnalysis from '../components/NoAnalysis';
 import {
   Report, ReportStatus, AnalysisResult, ProjectData,
-  ArcadisPosition, ClauseEntry, ScheduleImpact, NoticeRequirements,
+  ArcadisPosition, ClauseEntry, ClauseRecord, ScheduleImpact, NoticeRequirements,
   ReportMetadata
 } from '../types';
+import { buildReportClauseEntries, CLAUSE_FAMILY_LABELS, getClauseShortSourceRef } from '../lib/clauseSurface';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -203,6 +204,51 @@ function ClausesSection({ n, clauses }: { n: number; clauses: ClauseEntry[] }) {
   );
 }
 
+function ClauseAppendixSection({ clauses }: { clauses: ClauseRecord[] }) {
+  if (clauses.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="break-inside-avoid">
+      <div className="flex items-baseline gap-3 mb-5 pb-2 border-b border-slate-200">
+        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] w-16 shrink-0">Appendix A</span>
+        <h3 className="text-sm font-bold text-on-surface uppercase tracking-[0.12em]">Full Clause Library</h3>
+      </div>
+      <div className="space-y-5">
+        {clauses.map((clause) => (
+          <article key={clause.id} className="rounded-2xl border border-slate-200 overflow-hidden">
+            <div className="bg-slate-50 px-5 py-3 border-b border-slate-200 flex items-center justify-between gap-4">
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-widest text-primary">
+                  {getClauseShortSourceRef(clause)}
+                </div>
+                <div className="mt-1 text-sm font-bold text-on-surface">{clause.title}</div>
+              </div>
+              <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                {CLAUSE_FAMILY_LABELS[clause.clauseFamily]}
+              </span>
+            </div>
+            <div className="space-y-4 px-5 py-4">
+              <blockquote className="border-l-4 border-primary/30 pl-4 text-sm italic text-slate-600 leading-relaxed">
+                {clause.excerpt}
+              </blockquote>
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Plain-English Meaning</span>
+                <p className="text-xs text-on-surface leading-relaxed">{clause.plainEnglishMeaning}</p>
+              </div>
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Why It Matters</span>
+                <p className="text-xs text-on-surface leading-relaxed">{clause.whyItMatters}</p>
+              </div>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function ScheduleSection({ n, s }: { n: number; s: ScheduleImpact }) {
   return (
     <section className="break-inside-avoid">
@@ -251,7 +297,17 @@ function NoticeSection({ n, notice }: { n: number; notice: NoticeRequirements })
 // Full memo renderer
 // ---------------------------------------------------------------------------
 
-function ReportMemo({ report, analysisDate }: { report: Report; analysisDate: string }) {
+function ReportMemo({
+  report,
+  analysis,
+  analysisDate,
+  projectClauses,
+}: {
+  report: Report;
+  analysis: AnalysisResult | null;
+  analysisDate: string;
+  projectClauses: ClauseRecord[];
+}) {
   // Defensive fallback — metadata should always be present after the fix,
   // but guard against any stale cached data reaching this renderer
   const m: Report['metadata'] = report.metadata ?? {
@@ -263,6 +319,9 @@ function ReportMemo({ report, analysisDate }: { report: Report; analysisDate: st
     reportStatus:    'Draft',
   };
   const s = report.sections;
+  const keyClauses = s.keyContractClauses?.length > 0
+    ? s.keyContractClauses
+    : buildReportClauseEntries(projectClauses, analysis, 3);
 
   const subtitle = [m.projectName, m.contractNumber, m.changeRequestId]
     .filter(v => v && v !== 'Not specified' && v !== '')
@@ -316,7 +375,7 @@ function ReportMemo({ report, analysisDate }: { report: Report; analysisDate: st
         <ProseSection  n={1}  title="Executive Summary"           content={s.executiveSummary.content} />
         <ProseSection  n={2}  title="Owner / Client Request"      content={s.ownerRequest.content} />
         <PositionSection n={3} pos={s.arcadisPosition} />
-        <ClausesSection  n={4} clauses={s.keyContractClauses} />
+        <ClausesSection  n={4} clauses={keyClauses} />
         <ProseSection  n={5}  title="Application"                 content={s.application.content} />
         <ProseSection  n={6}  title="Commercial Analysis"         content={s.commercialAnalysis.content} />
         <ScheduleSection n={7} s={s.scheduleImpact} />
@@ -325,6 +384,7 @@ function ReportMemo({ report, analysisDate }: { report: Report; analysisDate: st
         <ProseSection  n={10} title="Recommendation"              content={s.recommendation.content} />
         <ProseSection  n={11} title="Draft Response"              content={s.draftResponse.content} />
         <ProseSection  n={12} title="Source Snapshot"             content={s.sourceSnapshot.content} />
+        <ClauseAppendixSection clauses={projectClauses} />
       </div>
 
       {/* Footer */}
@@ -364,16 +424,19 @@ export default function ReportPage() {
   const [analysisDate,   setAnalysisDate]   = useState('');
   const [errorMsg,       setErrorMsg]       = useState('');
   const [exporting,      setExporting]      = useState(false);
+  const [projectClauses, setProjectClauses] = useState<ClauseRecord[]>([]);
   const reportRef = useRef<HTMLDivElement>(null);
   const autoGenerateAttemptedRef = useRef(false);
 
   useEffect(() => {
     const load = async () => {
       try {
+        const snapshot = await loadCurrentWorkspaceSnapshot();
         const thread = await loadCurrentWorkspaceThreadView() ?? await loadCurrentThread();
         if (!thread) { setReportStatus('idle'); return; }
         if (thread.analysis)    setAnalysis(thread.analysis);
         if (thread.projectData) setProjectData(thread.projectData);
+        setProjectClauses(snapshot?.clauses ?? []);
         setAnalysisDate(thread.contract?.metadata?.uploadedAt ?? thread.createdAt ?? '');
         if (thread.report && thread.report.metadata && thread.report.sections?.ownerRequest !== undefined) {
           setReport(thread.report);
@@ -406,6 +469,7 @@ export default function ReportPage() {
           analysis:    thread?.analysis    ?? analysis,
           projectData: thread?.projectData ?? projectData,
           citations:   thread?.citations   ?? [],
+          clauses:     buildReportClauseEntries(projectClauses, (thread?.analysis ?? analysis) ?? null, 5),
         }),
       });
       const data = await res.json();
@@ -432,7 +496,7 @@ export default function ReportPage() {
     }
     autoGenerateAttemptedRef.current = true;
     void handleGenerate();
-  }, [analysis, projectData, reportStatus]);
+  }, [analysis, projectClauses, projectData, reportStatus]);
 
   const handleRegenerate = async () => {
     setReport(null);
@@ -586,7 +650,7 @@ export default function ReportPage() {
         {reportStatus === 'generating' && renderGenerating()}
         {reportStatus === 'failed'     && renderFailed()}
         {reportStatus === 'ready' && report && (
-          <ReportMemo report={report} analysisDate={analysisDate} />
+          <ReportMemo report={report} analysis={analysis} analysisDate={analysisDate} projectClauses={projectClauses} />
         )}
       </div>
     </div>

@@ -6,9 +6,18 @@ import {
   Scale, Loader2, FileSearch
 } from 'lucide-react';
 import { loadCurrentThread } from '../lib/db';
-import { loadCurrentWorkspaceThreadView } from '../lib/projectStore';
+import { loadCurrentWorkspaceSnapshot, loadCurrentWorkspaceThreadView } from '../lib/projectStore';
 import NoAnalysis from '../components/NoAnalysis';
-import { Citation, ExtractedPage, ClauseEntry } from '../types';
+import { Citation, ClauseLinkedDeadlineType, ClauseLinkedIssueType, ClauseLinkedOutputType, ClauseRecord, ClauseEntry, ExtractedPage } from '../types';
+import {
+  CLAUSE_DEADLINE_LABELS,
+  CLAUSE_FAMILY_LABELS,
+  CLAUSE_ISSUE_LABELS,
+  CLAUSE_OUTPUT_LABELS,
+  getClauseShortSourceRef,
+  groupClausesByFamily,
+  matchesClauseSearch,
+} from '../lib/clauseSurface';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -47,11 +56,16 @@ export default function SourcesPage() {
   const [citations, setCitations] = useState<Citation[]>([]);
   const [docName,   setDocName]   = useState('');
   const [pdfUrl,    setPdfUrl]    = useState<string | null>(null);
-  const [clauses,   setClauses]   = useState<ClauseEntry[]>([]);
+  const [reportClauses, setReportClauses] = useState<ClauseEntry[]>([]);
+  const [projectClauses, setProjectClauses] = useState<ClauseRecord[]>([]);
   const [loading,   setLoading]   = useState(true);
   const [search,    setSearch]    = useState('');
   const [zoom,      setZoom]      = useState(100);
   const [currentPage, setCurrentPage] = useState(1);
+  const [familyFilter, setFamilyFilter] = useState<ClauseRecord['clauseFamily'] | 'all'>('all');
+  const [issueFilter, setIssueFilter] = useState<ClauseLinkedIssueType | 'all'>('all');
+  const [deadlineFilter, setDeadlineFilter] = useState<ClauseLinkedDeadlineType | 'all'>('all');
+  const [outputFilter, setOutputFilter] = useState<ClauseLinkedOutputType | 'all'>('all');
 
   // Precise load state for accurate empty-state messaging
   const [noThread,         setNoThread]         = useState(false);
@@ -63,6 +77,7 @@ export default function SourcesPage() {
 
     const load = async () => {
       try {
+        const snapshot = await loadCurrentWorkspaceSnapshot({ includeArtifactBuffers: true });
         const thread = await loadCurrentWorkspaceThreadView({ includeArtifactBuffers: true }) ?? await loadCurrentThread();
 
         if (!thread?.analysis) { setNoThread(true); return; }
@@ -91,8 +106,9 @@ export default function SourcesPage() {
         }
         // Pull Key Contract Clauses from the report if one has been generated
         if (thread.report?.sections?.keyContractClauses?.length) {
-          setClauses(thread.report.sections.keyContractClauses);
+          setReportClauses(thread.report.sections.keyContractClauses);
         }
+        setProjectClauses(snapshot?.clauses ?? []);
       } catch (err) {
         console.error('Failed to load sources:', err);
         setNoThread(true);
@@ -128,6 +144,16 @@ export default function SourcesPage() {
         c.source.toLowerCase().includes(search.toLowerCase())
       )
     : citations;
+
+  const filteredProjectClauses = projectClauses.filter((clause) => {
+    if (familyFilter !== 'all' && clause.clauseFamily !== familyFilter) return false;
+    if (issueFilter !== 'all' && !clause.linkedIssueTypes.includes(issueFilter)) return false;
+    if (deadlineFilter !== 'all' && !clause.linkedDeadlineTypes.includes(deadlineFilter)) return false;
+    if (outputFilter !== 'all' && !clause.linkedOutputTypes.includes(outputFilter)) return false;
+    return matchesClauseSearch(clause, search);
+  });
+
+  const groupedClauses = groupClausesByFamily(filteredProjectClauses);
 
   // Jump to page — iframe uses hash fragment, text viewer uses scrollIntoView
   const scrollToPage = (pageNumber: number) => {
@@ -352,16 +378,16 @@ export default function SourcesPage() {
         {/* Panel header */}
         <div className="p-6 border-b border-slate-100 bg-slate-50/50">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-headline font-bold text-lg text-on-surface">Citations & Evidence</h2>
+            <h2 className="font-headline font-bold text-lg text-on-surface">Citations & Clause Library</h2>
             <span className="bg-primary/10 text-primary px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">
-              {citations.length + clauses.length} Finding{citations.length + clauses.length !== 1 ? 's' : ''}
+              {citations.length + projectClauses.length} Item{citations.length + projectClauses.length !== 1 ? 's' : ''}
             </span>
           </div>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
             <input value={search} onChange={e => setSearch(e.target.value)}
               className="w-full bg-white border border-slate-200 rounded-lg pl-10 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-              placeholder="Search citations..." type="text" />
+              placeholder="Search citations or clauses..." type="text" />
           </div>
         </div>
 
@@ -420,7 +446,7 @@ export default function SourcesPage() {
         </div>
 
         {/* Key Contract Clauses from Report */}
-        {clauses.length > 0 && (
+        {reportClauses.length > 0 && (
           <div className="pt-2">
             <div className="flex items-center gap-2 mb-4 pt-4 border-t border-slate-200">
               <Scale size={14} className="text-primary shrink-0" />
@@ -428,7 +454,7 @@ export default function SourcesPage() {
               <span className="text-[10px] text-slate-400">from Report</span>
             </div>
             <div className="space-y-4">
-              {clauses.map((clause, i) => (
+              {reportClauses.map((clause, i) => (
                 <div key={i} className="rounded-xl border border-slate-200 overflow-hidden group hover:shadow-md transition-all">
                   {/* Reference header */}
                   <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200 flex items-center gap-2">
@@ -467,6 +493,180 @@ export default function SourcesPage() {
             </div>
           </div>
         )}
+
+        <div className="pt-2">
+          <div className="flex items-center gap-2 mb-4 pt-4 border-t border-slate-200">
+            <Scale size={14} className="text-primary shrink-0" />
+            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Full Clause Library</span>
+            <span className="text-[10px] text-slate-400">{filteredProjectClauses.length} visible</span>
+          </div>
+
+          {projectClauses.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/70 p-5">
+              <p className="text-sm font-bold text-on-surface">No project clauses available yet</p>
+              <p className="mt-2 text-xs leading-6 text-on-surface-variant">
+                The clause browser will populate once the active project has saved clause records in the local workspace.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-5">
+              <div className="grid grid-cols-2 gap-3">
+                <label className="space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Family</span>
+                  <select
+                    value={familyFilter}
+                    onChange={(event) => setFamilyFilter(event.target.value as ClauseRecord['clauseFamily'] | 'all')}
+                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  >
+                    <option value="all">All families</option>
+                    {Object.entries(CLAUSE_FAMILY_LABELS).map(([value, label]) => (
+                      <option key={value} value={value}>{label}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Issue</span>
+                  <select
+                    value={issueFilter}
+                    onChange={(event) => setIssueFilter(event.target.value as ClauseLinkedIssueType | 'all')}
+                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  >
+                    <option value="all">All issues</option>
+                    {Object.entries(CLAUSE_ISSUE_LABELS).map(([value, label]) => (
+                      <option key={value} value={value}>{label}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Deadline</span>
+                  <select
+                    value={deadlineFilter}
+                    onChange={(event) => setDeadlineFilter(event.target.value as ClauseLinkedDeadlineType | 'all')}
+                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  >
+                    <option value="all">All deadlines</option>
+                    {Object.entries(CLAUSE_DEADLINE_LABELS).map(([value, label]) => (
+                      <option key={value} value={value}>{label}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Output</span>
+                  <select
+                    value={outputFilter}
+                    onChange={(event) => setOutputFilter(event.target.value as ClauseLinkedOutputType | 'all')}
+                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  >
+                    <option value="all">All outputs</option>
+                    {Object.entries(CLAUSE_OUTPUT_LABELS).map(([value, label]) => (
+                      <option key={value} value={value}>{label}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              {groupedClauses.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/70 p-5 text-xs text-on-surface-variant">
+                  No clauses match the current filters.
+                </div>
+              ) : (
+                <div className="space-y-5">
+                  {groupedClauses.map(([family, familyClauses]) => (
+                    <section key={family} className="space-y-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                          {CLAUSE_FAMILY_LABELS[family]}
+                        </div>
+                        <div className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                          {familyClauses.length}
+                        </div>
+                      </div>
+
+                      {familyClauses.map((clause) => (
+                        <article key={clause.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-primary">
+                                {getClauseShortSourceRef(clause)}
+                              </div>
+                              <h4 className="mt-2 text-sm font-bold text-on-surface">{clause.title}</h4>
+                            </div>
+                            <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                              {clause.confidence}
+                            </span>
+                          </div>
+
+                          <blockquote className="mt-4 border-l-4 border-primary/25 pl-4 text-xs italic leading-6 text-on-surface-variant">
+                            {clause.excerpt}
+                          </blockquote>
+
+                          <div className="mt-4 grid grid-cols-1 gap-4">
+                            <div>
+                              <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Plain-English Meaning</div>
+                              <p className="mt-1 text-xs leading-6 text-on-surface">{clause.plainEnglishMeaning}</p>
+                            </div>
+                            <div>
+                              <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Why It Matters</div>
+                              <p className="mt-1 text-xs leading-6 text-on-surface">{clause.whyItMatters}</p>
+                            </div>
+                          </div>
+
+                          <div className="mt-4 space-y-3">
+                            <div>
+                              <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Linked Issues</div>
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {clause.linkedIssueTypes.map((value) => (
+                                  <span key={value} className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                                    {CLAUSE_ISSUE_LABELS[value]}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div>
+                              <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Linked Deadlines</div>
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {clause.linkedDeadlineTypes.map((value) => (
+                                  <span key={value} className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                                    {CLAUSE_DEADLINE_LABELS[value]}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div>
+                              <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Linked Outputs</div>
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {clause.linkedOutputTypes.map((value) => (
+                                  <span key={value} className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                                    {CLAUSE_OUTPUT_LABELS[value]}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+                            <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Perspective Notes</div>
+                            <div className="mt-3 space-y-2 text-xs leading-6 text-on-surface-variant">
+                              <p><span className="font-bold text-on-surface">Designer:</span> {clause.perspectiveNotes.designer}</p>
+                              <p><span className="font-bold text-on-surface">Builder:</span> {clause.perspectiveNotes.builder}</p>
+                              <p><span className="font-bold text-on-surface">Developer:</span> {clause.perspectiveNotes.developer}</p>
+                              <p><span className="font-bold text-on-surface">Reviewer:</span> {clause.perspectiveNotes.reviewer}</p>
+                            </div>
+                          </div>
+                        </article>
+                      ))}
+                    </section>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
 
       </section>
