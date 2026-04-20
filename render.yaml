@@ -9,5 +9,9 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: NODE_VERSION
+        value: "22"
+      - key: ANTHROPIC_MODEL
+        value: claude-sonnet-4-6
       - key: ANTHROPIC_API_KEY
         sync: false

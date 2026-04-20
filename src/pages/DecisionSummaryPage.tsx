@@ -5,7 +5,11 @@ import {
   Loader2, RotateCcw
 } from 'lucide-react';
 import { loadCurrentThread, saveCurrentThread, clearCurrentThread } from '../lib/db';
-import { loadCurrentWorkspaceSnapshot, loadCurrentWorkspaceThreadView } from '../lib/projectStore';
+import {
+  loadCurrentWorkspaceSnapshot, loadCurrentWorkspaceThreadView,
+  getClausesForProject,
+} from '../lib/projectStore';
+import { LEGACY_COMPAT_PROJECT_ID } from '../lib/storageAdapter';
 import NoAnalysis from '../components/NoAnalysis';
 import type { ClauseRecord } from '../types';
 import { deriveSummaryIssues, getClauseShortSourceRef, rankClausesForIssue } from '../lib/clauseSurface';
@@ -42,7 +46,17 @@ export default function DecisionSummaryPage() {
           setClaimableAmount(thread.analysis.claimableAmount ?? '');
           setExtraDays(thread.analysis.extraDays ?? '');
           setSecondaryResp(thread.analysis.secondaryResponsibility ?? '');
-          setClauses(snapshot?.clauses ?? []);
+
+          // Prefer snapshot clauses; fall back to a direct project lookup when the snapshot
+          // returns before clause records have been committed (e.g. first navigation after intake).
+          const snapshotClauses = snapshot?.clauses ?? [];
+          if (snapshotClauses.length > 0) {
+            setClauses(snapshotClauses);
+          } else {
+            const projectId = thread.projectData?.id ?? LEGACY_COMPAT_PROJECT_ID;
+            const directClauses = await getClausesForProject(projectId);
+            setClauses(directClauses);
+          }
           return;
         }
         // Fallback: server store (handles direct navigation before IndexedDB is populated)

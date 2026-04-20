@@ -8,9 +8,14 @@ import { useNavigate } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { loadCurrentThread, saveCurrentThread } from '../lib/db';
-import { loadCurrentWorkspaceSnapshot, loadCurrentWorkspaceThreadView } from '../lib/projectStore';
+import {
+  loadCurrentWorkspaceSnapshot, loadCurrentWorkspaceThreadView,
+  loadCurrentProjectRecord, saveProjectRecord,
+  saveDraftVersionRecord, listDraftVersionRecords,
+} from '../lib/projectStore';
+import { LEGACY_COMPAT_PROJECT_ID } from '../lib/storageAdapter';
 import NoAnalysis from '../components/NoAnalysis';
-import { AnalysisResult, ClauseRecord, Draft, DraftStatus, DraftStrategy, ProjectData } from '../types';
+import { AnalysisResult, ClauseRecord, Draft, DraftStatus, DraftStrategy, DraftVersionRecord, ProjectData } from '../types';
 import { cn } from '../lib/utils';
 import { buildRelevantDraftClauses, getClauseShortSourceRef } from '../lib/clauseSurface';
 
@@ -265,6 +270,27 @@ export default function DraftResponsePage() {
         draft:       newDraft,
       } as any);
 
+      // Also save a versioned record to the drafts store for persistence across refreshes
+      const project = await loadCurrentProjectRecord();
+      const projectId = project?.id ?? LEGACY_COMPAT_PROJECT_ID;
+      const existingVersions = await listDraftVersionRecords(projectId);
+      const versionRecord: DraftVersionRecord = {
+        id: `${projectId}:draft:v${existingVersions.length + 1}:${Date.now()}`,
+        projectId,
+        analysisId: project?.currentAnalysisId,
+        reportVersionId: project?.currentReportId,
+        versionNumber: existingVersions.length + 1,
+        status: 'current',
+        origin: 'generated',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        draft: newDraft,
+      };
+      await saveDraftVersionRecord(versionRecord);
+      if (project) {
+        await saveProjectRecord({ ...project, currentDraftId: versionRecord.id, updatedAt: versionRecord.createdAt });
+      }
+
       setDraft(newDraft);
       setLetterText(newDraft.letter);
       setDraftStatus('ready');
@@ -295,6 +321,18 @@ export default function DraftResponsePage() {
     const updated: Draft = { ...draft, letter: letterText, updatedAt: new Date().toISOString() };
     const thread = await loadCurrentWorkspaceThreadView() ?? await loadCurrentThread();
     if (thread) await saveCurrentThread({ ...thread, draft: updated } as any);
+
+    // Update the versioned draft record to reflect user edits
+    const project = await loadCurrentProjectRecord();
+    const projectId = project?.id ?? LEGACY_COMPAT_PROJECT_ID;
+    if (project?.currentDraftId) {
+      const existing = await listDraftVersionRecords(projectId);
+      const current = existing.find((r) => r.id === project.currentDraftId);
+      if (current) {
+        await saveDraftVersionRecord({ ...current, draft: updated, origin: 'generated-and-edited', updatedAt: updated.updatedAt });
+      }
+    }
+
     setDraft(updated);
   };
 

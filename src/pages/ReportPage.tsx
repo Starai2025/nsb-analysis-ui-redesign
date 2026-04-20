@@ -7,12 +7,17 @@ import {
 import { useNavigate } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import { loadCurrentThread, saveCurrentThread, clearCurrentThread } from '../lib/db';
-import { loadCurrentWorkspaceSnapshot, loadCurrentWorkspaceThreadView } from '../lib/projectStore';
+import {
+  loadCurrentWorkspaceSnapshot, loadCurrentWorkspaceThreadView,
+  loadCurrentProjectRecord, saveProjectRecord,
+  saveReportVersionRecord, listReportVersionRecords,
+} from '../lib/projectStore';
+import { LEGACY_COMPAT_PROJECT_ID } from '../lib/storageAdapter';
 import NoAnalysis from '../components/NoAnalysis';
 import {
   Report, ReportStatus, AnalysisResult, ProjectData,
   ArcadisPosition, ClauseEntry, ClauseRecord, ScheduleImpact, NoticeRequirements,
-  ReportMetadata
+  ReportMetadata, ReportVersionRecord,
 } from '../types';
 import { buildReportClauseEntries, CLAUSE_FAMILY_LABELS, getClauseShortSourceRef } from '../lib/clauseSurface';
 
@@ -482,6 +487,27 @@ export default function ReportPage() {
         projectData: projectData ?? { name: '', contractNumber: '', changeRequestId: '' },
         report:      newReport,
       });
+
+      // Also save a versioned record to the reports store for persistence across refreshes
+      const project = await loadCurrentProjectRecord();
+      const projectId = project?.id ?? LEGACY_COMPAT_PROJECT_ID;
+      const existingVersions = await listReportVersionRecords(projectId);
+      const versionRecord: ReportVersionRecord = {
+        id: `${projectId}:report:v${existingVersions.length + 1}:${Date.now()}`,
+        projectId,
+        analysisId: project?.currentAnalysisId,
+        versionNumber: existingVersions.length + 1,
+        status: 'current',
+        origin: 'generated',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        report: newReport,
+      };
+      await saveReportVersionRecord(versionRecord);
+      if (project) {
+        await saveProjectRecord({ ...project, currentReportId: versionRecord.id, updatedAt: versionRecord.createdAt });
+      }
+
       setReport(newReport);
       setReportStatus('ready');
     } catch (err) {

@@ -1118,7 +1118,7 @@ export default function IntakePage() {
                 Capture the user lens and issue posture now, then open extra context only if it sharpens the analysis.
               </p>
 
-              <div className="mt-8 grid gap-5 xl:grid-cols-[1fr_1fr_0.9fr_0.9fr]">
+              <div className="mt-8 grid gap-5 sm:grid-cols-2">
                 <div className="flex flex-col gap-2.5">
                   <label className="text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface">User role</label>
                   <select
