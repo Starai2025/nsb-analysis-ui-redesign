@@ -26,7 +26,7 @@ import type {
   ProjectRecord,
   WorkspaceStatus,
 } from '../types';
-import { CURRENT_THREAD_ID, saveCurrentThread } from '../lib/db';
+import { CURRENT_THREAD_ID, clearCurrentThread, saveCurrentThread } from '../lib/db';
 import {
   loadCurrentWorkspaceSnapshot,
   replaceClausesForDocument,
@@ -267,6 +267,22 @@ export default function IntakePage() {
   const selectedRoleLabel = roleLabelFor(userRoleId);
   const selectedPreset = PROJECT_PRESETS[projectPreset];
   const hasRequiredDocuments = Boolean(contractFile && correspondenceFile);
+  const workflowStep = !contractFile
+    ? 'governing-agreement'
+    : !correspondenceFile
+      ? 'review-comments'
+      : 'risk-score-generation';
+  const governingAgreementStepState = contractFile
+    ? 'complete'
+    : workflowStep === 'governing-agreement'
+      ? 'active'
+      : 'pending';
+  const reviewCommentsStepState = correspondenceFile
+    ? 'complete'
+    : workflowStep === 'review-comments'
+      ? 'active'
+      : 'pending';
+  const riskScoreStepState = hasRequiredDocuments ? 'active' : 'pending';
   const stagedSupportingDocuments = SUPPORTING_DOCUMENT_OPTIONS.filter(
     (option) => supportingFiles[option.category],
   );
@@ -859,6 +875,19 @@ export default function IntakePage() {
     }
   };
 
+  const handleResetAnalysis = async () => {
+    try {
+      await clearCurrentThread();
+      window.location.reload();
+    } catch (resetError) {
+      setError(
+        resetError instanceof Error
+          ? resetError.message
+          : 'Unable to reset the workspace right now.',
+      );
+    }
+  };
+
   const frameworkSummary = [
     { label: 'State', value: stateName || 'Not set' },
     { label: 'Agency', value: agency || 'Not set' },
@@ -917,19 +946,19 @@ export default function IntakePage() {
         </div>
       </div>
 
-      <section className="relative overflow-hidden rounded-[24px] border border-[#f0dfca] bg-[radial-gradient(circle_at_right,#f7e1c7_0%,#fffaf4_14%,#ffffff_42%,#ffffff_100%)] px-8 py-8 shadow-lg shadow-slate-900/5">
+      <section className="relative overflow-hidden rounded-[24px] border border-[#f0dfca] bg-[radial-gradient(circle_at_right,#f7e1c7_0%,#fffaf4_14%,#ffffff_42%,#ffffff_100%)] px-8 py-6 shadow-lg shadow-slate-900/5">
         <div className="absolute -left-20 -top-16 h-56 w-56 rounded-full bg-slate-900/4 blur-3xl" />
         <div className="absolute -bottom-20 -right-10 h-60 w-60 rounded-full bg-[#e67e22]/14 blur-3xl" />
-        <div className="relative flex flex-wrap items-start justify-between gap-6">
+        <div className="relative flex flex-wrap items-start justify-between gap-4">
           <div className="max-w-3xl">
-            <div className="mb-3 text-[10px] font-bold uppercase tracking-[0.28em] text-[#e67e22]">New Analysis</div>
+            <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.28em] text-[#e67e22]">New Analysis</div>
             <h1 className="font-headline text-[2.7rem] font-black uppercase leading-[0.94] tracking-[-0.025em] text-[#162a55]">
               New Change Analysis
             </h1>
-            <p className="mt-4 max-w-2xl text-[14px] font-medium leading-6 text-slate-400">
+            <p className="mt-3 max-w-2xl text-[14px] font-medium leading-6 text-slate-400">
               Create the workspace, stage the governing documents locally, then run a focused legal and financial review.
             </p>
-            <div className="mt-7 flex flex-wrap gap-3">
+            <div className="mt-5 flex flex-wrap gap-3">
               <div className="rounded-full border border-slate-200 bg-white/90 px-5 py-2 text-[10px] font-bold uppercase tracking-[0.13em] text-on-surface">
                 Governing agreement + correspondence required
               </div>
@@ -938,8 +967,18 @@ export default function IntakePage() {
               </div>
             </div>
           </div>
-          <div className="rounded-full bg-[#0f2044] px-4 py-2 text-[10px] font-bold uppercase tracking-[0.16em] text-white shadow-lg">
-            Secure Intake
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => void handleResetAnalysis()}
+              disabled={hydrating || analyzing}
+              className="rounded-full bg-[#0f2044] px-4 py-2 text-[10px] font-bold uppercase tracking-[0.16em] text-white shadow-lg transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Reset Analysis
+            </button>
+            <div className="rounded-full bg-[#0f2044] px-4 py-2 text-[10px] font-bold uppercase tracking-[0.16em] text-white shadow-lg">
+              Secure Intake
+            </div>
           </div>
         </div>
       </section>
@@ -1039,7 +1078,7 @@ export default function IntakePage() {
                       />
                     </div>
                     <div className="flex flex-col gap-2.5">
-                      <label htmlFor="changeRequestInput" className="text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface">Change request ID</label>
+                      <label htmlFor="changeRequestInput" className="text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface">Potential Change Request ID</label>
                       <input
                         id="changeRequestInput"
                         className="rounded-md border border-slate-300 bg-white p-3.5 text-[14px] text-on-surface outline-none transition-all placeholder:text-slate-400 focus:border-[#e67e22] focus:ring-4 focus:ring-[#e67e22]/10"
@@ -1483,8 +1522,20 @@ export default function IntakePage() {
               </div>
               <div className="flex flex-col gap-5 p-8">
                 <div className="flex items-start gap-4">
-                  <div className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${contractFile ? 'bg-emerald-500 text-white' : 'border-2 border-white/20'}`}>
-                    {contractFile && <CheckCircle2 size={14} />}
+                  <div
+                    className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
+                      governingAgreementStepState === 'complete'
+                        ? 'bg-emerald-500 text-white'
+                        : governingAgreementStepState === 'active'
+                          ? 'border-2 border-[#e67e22] bg-[#e67e22]/15'
+                          : 'border-2 border-white/20'
+                    }`}
+                  >
+                    {governingAgreementStepState === 'complete' ? (
+                      <CheckCircle2 size={14} />
+                    ) : governingAgreementStepState === 'active' ? (
+                      <div className="h-1.5 w-1.5 rounded-full bg-[#e67e22] animate-pulse" />
+                    ) : null}
                   </div>
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-white">Governing Agreement</p>
@@ -1492,8 +1543,20 @@ export default function IntakePage() {
                   </div>
                 </div>
                 <div className="flex items-start gap-4">
-                  <div className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${correspondenceFile ? 'bg-emerald-500 text-white' : 'border-2 border-[#e67e22] bg-[#e67e22]/15'}`}>
-                    {correspondenceFile ? <CheckCircle2 size={14} /> : <div className="h-1.5 w-1.5 rounded-full bg-[#e67e22] animate-pulse" />}
+                  <div
+                    className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
+                      reviewCommentsStepState === 'complete'
+                        ? 'bg-emerald-500 text-white'
+                        : reviewCommentsStepState === 'active'
+                          ? 'border-2 border-[#e67e22] bg-[#e67e22]/15'
+                          : 'border-2 border-white/20'
+                    }`}
+                  >
+                    {reviewCommentsStepState === 'complete' ? (
+                      <CheckCircle2 size={14} />
+                    ) : reviewCommentsStepState === 'active' ? (
+                      <div className="h-1.5 w-1.5 rounded-full bg-[#e67e22] animate-pulse" />
+                    ) : null}
                   </div>
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-white">Review Comments</p>
@@ -1507,7 +1570,17 @@ export default function IntakePage() {
                   </div>
                 </div>
                 <div className="flex items-start gap-4">
-                  <div className="mt-0.5 h-6 w-6 shrink-0 rounded-full border-2 border-white/20"></div>
+                  <div
+                    className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
+                      riskScoreStepState === 'active'
+                        ? 'border-2 border-[#e67e22] bg-[#e67e22]/15'
+                        : 'border-2 border-white/20'
+                    }`}
+                  >
+                    {riskScoreStepState === 'active' ? (
+                      <div className="h-1.5 w-1.5 rounded-full bg-[#e67e22] animate-pulse" />
+                    ) : null}
+                  </div>
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-white">Risk Score Generation</p>
                     <p className="text-[11px] text-white/55">{analyzing ? analysisStatus || 'Queued for analysis' : 'Analysis not yet run'}</p>
