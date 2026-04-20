@@ -40,58 +40,111 @@ export default function NoAnalysis({ currentStep }: NoAnalysisProps) {
   const currentIdx = STEP_ORDER.indexOf(currentStep);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[70vh] px-8">
-      <div className="w-full max-w-lg">
-        {/* Header */}
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-700 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider mb-4">
-            Action Required
-          </div>
-          <h2 className="text-2xl font-extrabold text-on-surface font-headline mb-2">{msg.title}</h2>
-          <p className="text-on-surface-variant text-sm max-w-xs mx-auto leading-relaxed">{msg.body}</p>
-        </div>
+    <div className="flex min-h-[70vh] items-center justify-center px-8 py-10">
+      <div className="w-full max-w-5xl space-y-6">
+        <section className="relative overflow-hidden rounded-[28px] border border-[#f0dfca] bg-[radial-gradient(circle_at_right,#f7e1c7_0%,#fffaf4_14%,#ffffff_42%,#ffffff_100%)] px-8 py-8 shadow-lg shadow-slate-900/5">
+          <div className="absolute -left-20 -top-16 h-56 w-56 rounded-full bg-slate-900/4 blur-3xl" />
+          <div className="absolute -bottom-20 -right-10 h-60 w-60 rounded-full bg-[#e67e22]/14 blur-3xl" />
 
-        {/* Step journey */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-6">
-          <div className="px-5 py-3 border-b border-slate-100 bg-slate-50">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Your workflow</p>
+          <div className="relative flex flex-wrap items-end justify-between gap-6">
+            <div className="max-w-3xl">
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#e67e22]/20 bg-[#fef9f0] px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-[#8b4e0e]">
+                Analysis Required
+              </div>
+              <h2 className="font-headline text-3xl font-extrabold tracking-tight text-[#162a55]">
+                {msg.title}
+              </h2>
+              <p className="mt-3 max-w-2xl text-sm leading-7 text-on-surface-variant">
+                {msg.body}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => navigate('/intake')}
+              className="inline-flex items-center justify-center gap-2 rounded-[18px] bg-[#0f2044] px-8 py-3.5 text-sm font-bold text-white shadow-lg shadow-[#0f2044]/20 transition-all hover:bg-[#16315f] active:scale-[0.98]"
+            >
+              Start New Analysis
+              <ArrowRight size={16} />
+            </button>
           </div>
+        </section>
+
+        <section className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-100 bg-slate-50/80 px-6 py-4">
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Before this page unlocks</p>
+          </div>
+
           <div className="divide-y divide-slate-100">
             {STEPS.map((step, i) => {
               const stepIdx = STEP_ORDER.indexOf(step.id);
-              const isDone    = stepIdx < currentIdx;
+              const isDone = stepIdx < currentIdx;
               const isCurrent = step.id === currentStep;
-              const isNext    = step.id === 'intake';
+              const isNext = step.id === 'intake';
+              const Icon = step.icon;
+
               return (
-                <div key={step.id}
-                  className={`flex items-center gap-4 px-5 py-3.5 ${isNext ? 'bg-primary/5' : ''}`}>
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-xs font-bold
-                    ${isDone    ? 'bg-emerald-100 text-emerald-600' :
-                      isNext    ? 'bg-primary text-white' :
-                      isCurrent ? 'bg-amber-100 text-amber-600' :
-                                  'bg-slate-100 text-slate-400'}`}>
+                <div
+                  key={step.id}
+                  className={`flex items-center gap-4 px-6 py-4 ${isNext ? 'bg-[linear-gradient(90deg,#fff8ef_0%,#ffffff_60%)]' : ''}`}
+                >
+                  <div
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                      isDone
+                        ? 'bg-emerald-100 text-emerald-600'
+                        : isNext
+                          ? 'bg-[#0f2044] text-white'
+                          : isCurrent
+                            ? 'bg-[#fde8cc] text-[#8b4e0e]'
+                            : 'bg-slate-100 text-slate-400'
+                    }`}
+                  >
                     {isDone ? <CheckCircle2 size={14} /> : i + 1}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-semibold ${isCurrent || isNext ? 'text-on-surface' : isDone ? 'text-emerald-600' : 'text-slate-400'}`}>
+
+                  <div
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${
+                      isDone
+                        ? 'border-emerald-200 bg-emerald-50 text-emerald-600'
+                        : isNext
+                          ? 'border-[#0f2044]/10 bg-[#0f2044]/5 text-[#0f2044]'
+                          : isCurrent
+                            ? 'border-[#e67e22]/20 bg-[#fef3e3] text-[#c76c13]'
+                            : 'border-slate-200 bg-slate-50 text-slate-400'
+                    }`}
+                  >
+                    <Icon size={16} />
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <p
+                      className={`text-sm font-semibold ${
+                        isDone
+                          ? 'text-emerald-700'
+                          : isCurrent || isNext
+                            ? 'text-on-surface'
+                            : 'text-slate-400'
+                      }`}
+                    >
                       {step.label}
                     </p>
                   </div>
+
                   {isNext && (
-                    <span className="text-[10px] font-bold text-primary uppercase tracking-wider">Start here</span>
+                    <span className="rounded-full border border-[#0f2044]/10 bg-[#0f2044]/5 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#0f2044]">
+                      Start here
+                    </span>
+                  )}
+                  {isCurrent && !isNext && (
+                    <span className="rounded-full border border-[#e67e22]/20 bg-[#fef3e3] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#8b4e0e]">
+                      Waiting
+                    </span>
                   )}
                 </div>
               );
             })}
           </div>
-        </div>
-
-        {/* CTA */}
-        <button onClick={() => navigate('/intake')}
-          className="w-full flex items-center justify-center gap-2 bg-primary text-white py-3.5 rounded-xl font-bold text-sm hover:bg-primary-dim transition-all shadow-lg shadow-primary/20 active:scale-95">
-          Start New Analysis
-          <ArrowRight size={16} />
-        </button>
+        </section>
       </div>
     </div>
   );
