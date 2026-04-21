@@ -16,9 +16,13 @@ import {
   loadKnowledge,
 } from "./knowledge.ts";
 import type { KnowledgeBundle } from "./knowledge.ts";
+import {
+  buildAnalysisKnowledgeSignals,
+  buildAnalysisSignalsPrompt,
+} from "./analysisSignals.ts";
 import type {
   IngestionStore, ExtractedDocument, ExtractedChunk,
-  ExtractedPage, DocumentType, Citation,
+  ExtractedPage, DocumentType, Citation, ProjectData,
 } from "./src/types.ts";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -341,6 +345,27 @@ function getDocumentCharCount(doc: ExtractedDocument): number {
   return getDocumentText(doc).length;
 }
 
+function buildProjectAnalysisText(projectData: Partial<ProjectData>): string {
+  const lines = [
+    projectData.name ? `Project: ${projectData.name}` : "",
+    projectData.contractNumber ? `Contract Number: ${projectData.contractNumber}` : "",
+    projectData.changeRequestId ? `Change Request: ${projectData.changeRequestId}` : "",
+    projectData.state ? `State: ${projectData.state}` : "",
+    projectData.agency ? `Agency: ${projectData.agency}` : "",
+    projectData.deliveryModel ? `Delivery Model: ${projectData.deliveryModel}` : "",
+    projectData.ownerClient ? `Owner Client: ${projectData.ownerClient}` : "",
+    projectData.userRole ? `User Role: ${projectData.userRole}` : "",
+    projectData.concessionaire ? `Concessionaire: ${projectData.concessionaire}` : "",
+    projectData.builder ? `Builder: ${projectData.builder}` : "",
+    projectData.leadDesigner ? `Lead Designer: ${projectData.leadDesigner}` : "",
+    projectData.demoProfile ? `Demo Profile: ${projectData.demoProfile}` : "",
+    projectData.issueMode ? `Issue Mode: ${projectData.issueMode}` : "",
+    projectData.scenarioSummary ? `Scenario Summary: ${projectData.scenarioSummary}` : "",
+  ].filter(Boolean);
+
+  return lines.length ? `Project context:\n${lines.join("\n")}` : "";
+}
+
 function extractQueryTerms(text: string): string[] {
   const matches = text.toLowerCase().match(/[a-z][a-z-]{3,}/g) ?? [];
   const counts = new Map<string, number>();
@@ -623,9 +648,10 @@ async function withRetry<T>(fn: () => Promise<T>, label: string): Promise<T> {
 
 async function runAnalysis(
   knowledge: KnowledgeBundle,
+  projectData: Partial<ProjectData>,
   contractBuffer: Buffer, contractMime: string, contractDoc: ExtractedDocument,
   corrBuffer:     Buffer, corrMime:     string, corrDoc:      ExtractedDocument,
-): Promise<any> {
+): Promise<{ analysis: any; knowledgeSignals: ReturnType<typeof buildAnalysisKnowledgeSignals> }> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set on the server.");
   const client = new Anthropic({ apiKey });
@@ -637,7 +663,25 @@ async function runAnalysis(
   const contractTokens = estimateTokens(contractBuffer, contractMime, contractDoc, contractUsePdfBinary);
   const corrTokens     = estimateTokens(corrBuffer,     corrMime,     corrDoc,     corrUsePdfBinary);
   const totalTokens    = contractTokens + corrTokens;
-  const queryTerms     = extractQueryTerms(getDocumentText(corrDoc));
+  const projectContextText = buildProjectAnalysisText(projectData);
+  const queryTerms = extractQueryTerms(
+    [projectContextText, getDocumentText(corrDoc)].filter(Boolean).join("\n\n"),
+  );
+  const knowledgeSignals = buildAnalysisKnowledgeSignals(
+    knowledge,
+    contractDoc,
+    corrDoc,
+    projectData,
+    queryTerms,
+  );
+  const retrievalTerms = knowledgeSignals.contractRetrievalTerms.length
+    ? knowledgeSignals.contractRetrievalTerms
+    : queryTerms;
+  const analysisSignalPrompt = buildAnalysisSignalsPrompt(knowledgeSignals);
+
+  console.log(
+    `  Retrieved ${knowledgeSignals.fingerprintSignals.length} fingerprint cues and ${knowledgeSignals.ladotSignals.length} LA DOTD cues`,
+  );
 
   let effectiveContractDoc = contractDoc;
   let effectiveCorrDoc     = corrDoc;
@@ -672,10 +716,10 @@ async function runAnalysis(
     }
 
     if (!contractUsePdfBinary) {
-      effectiveContractDoc = selectDocumentPagesForBudget(contractDoc, contractBudget, queryTerms);
+      effectiveContractDoc = selectDocumentPagesForBudget(contractDoc, contractBudget, retrievalTerms);
     }
     if (!corrUsePdfBinary) {
-      effectiveCorrDoc = selectDocumentPagesForBudget(corrDoc, corrBudget, queryTerms);
+      effectiveCorrDoc = selectDocumentPagesForBudget(corrDoc, corrBudget, retrievalTerms);
     }
   }
 
@@ -683,6 +727,8 @@ async function runAnalysis(
   const corrContent     = buildDocumentContent(corrBuffer,     corrMime,     effectiveCorrDoc,     { usePdfBinary: corrUsePdfBinary });
 
   const userContent: Anthropic.MessageParam["content"] = [
+    ...(projectContextText ? [{ type: "text", text: projectContextText } as Anthropic.TextBlockParam] : []),
+    ...(analysisSignalPrompt ? [{ type: "text", text: analysisSignalPrompt } as Anthropic.TextBlockParam] : []),
     ...(contractContent as any[]),
     ...(corrContent as any[]),
     { type: "text", text: "Analyze these documents and call submit_analysis with your findings." },
@@ -709,9 +755,9 @@ async function runAnalysis(
 
     const analysis = toolUse.input as any;
     validateAnalysis(analysis);
-    return analysis;
+    return { analysis, knowledgeSignals };
   } catch (err: any) {
-    if (err.name === "AbortError") throw new Error("Analysis timed out after 120 seconds. Please try again.");
+    if (err.name === "AbortError") throw new Error("Analysis timed out after 180 seconds. Please try again.");
     throw err;
   } finally {
     clearTimeout(timeout);
@@ -753,6 +799,7 @@ const CITATION_TOOL: Anthropic.Tool = {
 async function extractCitations(
   analysis:    any,
   contractDoc: ExtractedDocument,
+  retrievalTerms: string[] = [],
 ): Promise<Citation[]> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return [];
@@ -760,8 +807,32 @@ async function extractCitations(
   try {
     const client = new Anthropic({ apiKey });
 
-    // Use top 20 chunks from the contract (by page order)
-    const chunks = (contractDoc.chunks ?? []).slice(0, 20);
+    const analysisTerms = extractQueryTerms([
+      analysis.executiveConclusion,
+      analysis.primaryResponsibility,
+      analysis.secondaryResponsibility,
+      analysis.noticeDeadline,
+      analysis.strategicRecommendation,
+      ...(analysis.keyRisks ?? []).flatMap((risk: any) => [risk?.title, risk?.description]),
+    ].join(" "));
+    const chunkTerms = [...new Set([...retrievalTerms, ...analysisTerms])].slice(0, 24);
+    const chunks = [...(contractDoc.chunks ?? [])]
+      .map((chunk) => {
+        const text = chunk.text.toLowerCase();
+        let score = chunk.pageNumber && chunk.pageNumber <= 8 ? 2 : 0;
+
+        for (const term of chunkTerms) {
+          if (!term || !text.includes(term.toLowerCase())) continue;
+          score += term.includes(" ") ? 8 : 3;
+        }
+
+        return { chunk, score };
+      })
+      .sort((left, right) => right.score - left.score || (left.chunk.pageNumber ?? 0) - (right.chunk.pageNumber ?? 0))
+      .slice(0, 20)
+      .map((entry) => entry.chunk)
+      .sort((left, right) => (left.pageNumber ?? 0) - (right.pageNumber ?? 0));
+
     const chunksText = chunks
       .map(c => `[Page ${c.pageNumber ?? "?"}]\n${c.text}`)
       .join("\n\n---\n\n");
@@ -1177,6 +1248,18 @@ async function startServer() {
         const files        = req.files as Record<string, Express.Multer.File[]>;
         const contractFile = files?.contract?.[0];
         const corrFile     = files?.correspondence?.[0];
+        const optionalString = (value: unknown): string | undefined => {
+          const text = String(value ?? "").trim();
+          return text ? text : undefined;
+        };
+        const optionalBoolean = (value: unknown): boolean | undefined => {
+          if (value === undefined || value === null || value === "") return undefined;
+          if (typeof value === "boolean") return value;
+          const normalized = String(value).trim().toLowerCase();
+          if (normalized === "true") return true;
+          if (normalized === "false") return false;
+          return undefined;
+        };
 
         if (!contractFile || !corrFile) {
           res.status(400).json({ error: "Both 'contract' and 'correspondence' files are required." });
@@ -1198,6 +1281,29 @@ async function startServer() {
 
         console.log(`\nIngesting: "${contractFile.originalname}" + "${corrFile.originalname}"`);
 
+        const projectData: ProjectData = {
+          name:            String(req.body.projectName     || ""),
+          contractNumber:  String(req.body.contractNumber  || ""),
+          changeRequestId: String(req.body.changeRequestId || ""),
+          state: optionalString(req.body.state),
+          agency: optionalString(req.body.agency),
+          deliveryModel: optionalString(req.body.deliveryModel),
+          ownerClient: optionalString(req.body.ownerClient),
+          userRole: optionalString(req.body.userRole),
+          concessionaire: optionalString(req.body.concessionaire),
+          builder: optionalString(req.body.builder),
+          leadDesigner: optionalString(req.body.leadDesigner),
+          demoProfile: optionalString(req.body.demoProfile),
+          issueMode: optionalString(req.body.issueMode),
+          scenarioSummary: optionalString(req.body.scenarioSummary),
+          projectProfileId: optionalString(req.body.projectProfileId) as ProjectData["projectProfileId"],
+          primaryRoleId: optionalString(req.body.primaryRoleId),
+          workAlreadyProceeding: optionalBoolean(req.body.workAlreadyProceeding),
+          noticeAlreadySent: optionalBoolean(req.body.noticeAlreadySent),
+          scheduleImpactKnown: optionalBoolean(req.body.scheduleImpactKnown),
+          pricingImpactKnown: optionalBoolean(req.body.pricingImpactKnown),
+        };
+
         // Step 1: Ingest
         const [contractDoc, correspondenceDoc] = await Promise.all([
           ingestDocument(contractFile.buffer, contractFile.mimetype, contractFile.originalname, "contract",       contractFile.size),
@@ -1206,8 +1312,9 @@ async function startServer() {
 
         // Step 2: Analyze
         console.log("Running Claude analysis...");
-        const analysis = await runAnalysis(
+        const { analysis, knowledgeSignals } = await runAnalysis(
           knowledge,
+          projectData,
           contractFile.buffer, contractFile.mimetype, contractDoc,
           corrFile.buffer,     corrFile.mimetype,     correspondenceDoc,
         );
@@ -1215,14 +1322,8 @@ async function startServer() {
 
         // Step 3: Extract citations (non-blocking)
         console.log("Extracting citations...");
-        const citations = await extractCitations(analysis, contractDoc);
+        const citations = await extractCitations(analysis, contractDoc, knowledgeSignals.contractRetrievalTerms);
         console.log(`  ${citations.length} citation(s) extracted`);
-
-        const projectData = {
-          name:            String(req.body.projectName     || ""),
-          contractNumber:  String(req.body.contractNumber  || ""),
-          changeRequestId: String(req.body.changeRequestId || ""),
-        };
 
         // Step 4: Persist backup (metadata only)
         const contractDocMeta = { ...contractDoc,       pages: undefined, chunks: undefined };
@@ -1233,7 +1334,11 @@ async function startServer() {
           contract: contractDocMeta,
           correspondence: corrDocMeta,
           citations,
-          knowledgeMeta: knowledge.versionInfo,
+          knowledgeMeta: {
+            ...knowledge.versionInfo,
+            matchedFingerprintCount: knowledgeSignals.fingerprintSignals.length,
+            matchedLadotClauseCount: knowledgeSignals.ladotSignals.length,
+          },
         } as any;
         await saveStore(store);
 
@@ -1244,7 +1349,11 @@ async function startServer() {
           analysis,
           projectData,
           citations,
-          knowledgeMeta: knowledge.versionInfo,
+          knowledgeMeta: {
+            ...knowledge.versionInfo,
+            matchedFingerprintCount: knowledgeSignals.fingerprintSignals.length,
+            matchedLadotClauseCount: knowledgeSignals.ladotSignals.length,
+          },
           contract:       contractDoc,
           correspondence: correspondenceDoc,
         });

@@ -1,0 +1,30 @@
+[
+  {
+    "id": "ladot-directive-candidate-001",
+    "label": "Directive-like review comments should preserve rights and surface change-path pressure",
+    "contractPath": "C:/path/to/governing-agreement.pdf",
+    "correspondencePath": "C:/path/to/review-comments-or-letter.pdf",
+    "projectData": {
+      "name": "I-10 Calcasieu River Bridge",
+      "contractNumber": "DB-EXAMPLE-001",
+      "changeRequestId": "PCR-001",
+      "state": "Louisiana",
+      "agency": "LA DOTD",
+      "deliveryModel": "P3 / design-build",
+      "ownerClient": "LA DOTD",
+      "leadDesigner": "Arcadis",
+      "demoProfile": "ladot-calcasieu",
+      "projectProfileId": "ladot-calcasieu",
+      "issueMode": "rejected-design-submittal"
+    },
+    "expected": {
+      "scopeStatus": "Out of Scope",
+      "primaryResponsibilityIncludes": ["owner", "la dotd"],
+      "extraMoneyLikely": true,
+      "extraTimeLikely": true,
+      "strategicRecommendationIncludes": ["preserve", "direction", "notice"],
+      "keyRiskTitlesInclude": ["Directive", "Notice"],
+      "citationsMin": 2
+    }
+  }
+]

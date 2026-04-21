@@ -12,6 +12,9 @@ export interface AnalysisResult {
   noticeDeadline: string;
   strategicRecommendation: string;
   keyRisks: { title: string, description: string }[];
+  summaryTitle?: string;
+  summaryDescription?: string;
+  summaryTags?: string[];
 }
 
 export interface Citation {
@@ -216,6 +219,7 @@ export interface IngestionStore {
   analysis?: AnalysisResult;
   projectData?: ProjectData;
   citations?: Citation[];
+  knowledgeMeta?: Record<string, unknown>;
 }
 
 export interface WorkspaceError {

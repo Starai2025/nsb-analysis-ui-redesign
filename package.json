@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
+    "eval:analysis": "node --experimental-strip-types scripts/eval-analysis.ts",
     "test:e2e": "playwright test",
     "start": "node --experimental-strip-types -e \"process.env.NODE_ENV='production'; import('./server.ts')\""
   },

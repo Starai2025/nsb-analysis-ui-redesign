@@ -764,6 +764,31 @@ export default function IntakePage() {
       formData.append('contractNumber', projectData.contractNumber);
       formData.append('changeRequestId', projectData.changeRequestId);
 
+      const optionalMetadata: Array<[string, string | boolean | undefined]> = [
+        ['state', projectData.state],
+        ['agency', projectData.agency],
+        ['deliveryModel', projectData.deliveryModel],
+        ['ownerClient', projectData.ownerClient],
+        ['userRole', projectData.userRole],
+        ['concessionaire', projectData.concessionaire],
+        ['builder', projectData.builder],
+        ['leadDesigner', projectData.leadDesigner],
+        ['demoProfile', projectData.demoProfile],
+        ['issueMode', projectData.issueMode],
+        ['scenarioSummary', projectData.scenarioSummary],
+        ['projectProfileId', projectData.projectProfileId],
+        ['primaryRoleId', projectData.primaryRoleId],
+        ['workAlreadyProceeding', projectData.workAlreadyProceeding],
+        ['noticeAlreadySent', projectData.noticeAlreadySent],
+        ['scheduleImpactKnown', projectData.scheduleImpactKnown],
+        ['pricingImpactKnown', projectData.pricingImpactKnown],
+      ];
+
+      for (const [key, value] of optionalMetadata) {
+        if (value === undefined || value === null || value === '') continue;
+        formData.append(key, String(value));
+      }
+
       const response = await fetch('/api/analyze', {
         method: 'POST',
         body: formData,
